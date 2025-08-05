@@ -48,6 +48,13 @@ if [ ! -f $refphase_rData ]; then
     exit 1
 fi
 
+# Check if Rscript is available
+if ! command -v Rscript &> /dev/null; then
+    echo "Error: Rscript is not available in the environment."
+    echo "Please install R and ensure Rscript is in your PATH."
+    exit 1
+fi
+
 echo "Extracting data from REFPHASE output"
 Rscript "${SCRIPT_DIR}/convert_refphase_output/extract_rephase_data.R" \
     --refphase_rData $refphase_rData \
