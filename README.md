@@ -223,7 +223,7 @@ LTX000
 └── LTX0000.tree.RDS
 ```
 
-Using these two files, run the input_conversion command which should be available in your system after installing ALPACA.
+Using these two files, run the input-conversion command which should be available in your system after installing ALPACA.
 
 E.g.:
 
@@ -233,7 +233,7 @@ refphase_rData="examples/simple_pipeline/${tumour_id}/refphase/${tumour_id}-refp
 CONIPHER_tree_object="examples/simple_pipeline/${tumour_id}/conipher/output/${tumour_id}.tree.RDS"
 output_dir="examples/simple_pipeline/${tumour_id}/alpaca/input"
 
-input_conversion \
+alpaca input-conversion \
     --tumour_id $tumour_id \
     --refphase_rData $refphase_rData \
     --CONIPHER_tree_object $CONIPHER_tree_object \
