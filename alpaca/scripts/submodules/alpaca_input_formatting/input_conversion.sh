@@ -10,6 +10,7 @@ usage() {
     echo "  --tumour_id              Tumour ID (required)"
     echo "  --refphase_rData         Path to refphase .RData file (required)"
     echo "  --CONIPHER_tree_object   Path to CONIPHER tree object .RDS file (required)"
+    echo "  --CONIPHER_tree_index    Selected CONIPHER tree index (optional, default: 1)"
     echo "  --output_dir             Output directory (required)"
     echo "  --help                   Display this help message"
     exit 1
@@ -21,6 +22,7 @@ while [[ "$#" -gt 0 ]]; do
         --tumour_id) tumour_id="$2"; shift ;;
         --refphase_rData) refphase_rData="$2"; shift ;;
         --CONIPHER_tree_object) CONIPHER_tree_object="$2"; shift ;;
+        --CONIPHER_tree_index) CONIPHER_tree_index="${2:-1}"; shift ;;
         --output_dir) output_dir="$2"; shift ;;
         --help) usage ;;
         *) echo "Unknown parameter passed: $1"; usage ;;
@@ -75,4 +77,5 @@ python3 "${SCRIPT_DIR}/convert_refphase_output/convert_refphase.py" \
 echo "Extracting data from CONIPHER output"
 Rscript "${SCRIPT_DIR}/convert_conipher_output/convert_conipher_output.R" \
     --CONIPHER_tree_object $CONIPHER_tree_object \
+    --CONIPHER_tree_index $CONIPHER_tree_index \
     --output_dir $output_dir
