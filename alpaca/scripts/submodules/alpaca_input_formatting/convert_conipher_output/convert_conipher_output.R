@@ -176,6 +176,8 @@ extractTreeGraphPaths = function(tree_graph){
 option_list = list(
   make_option(c("--CONIPHER_tree_object"), type="character", 
               help="path to CONIPHER tree object"),
+  make_option(c("--CONIPHER_tree_index"), type="character",
+              help="selected CONIPHER tree index"),
   make_option(c("--output_dir"), type="character", 
               help="output directory")
 )
@@ -191,19 +193,20 @@ args = parse_args(parser)
 
 # Read the tree object and set output directory
 tree_object = readRDS(args$CONIPHER_tree_object)
+selected_tree_index = as.numeric(args$CONIPHER_tree_index)
 output_dir = args$output_dir
 
-default_tree = tree_object$graph_pyclone$default_tree
-tree_paths = extractTreeGraphPaths(tree_graph = default_tree)
+alt_trees = tree_object$graph_pyclone$alt_trees
+selected_tree = alt_trees[[selected_tree_index]]
+tree_paths = extractTreeGraphPaths(tree_graph = selected_tree)
 tree_path_clone_names = lapply(tree_paths, function(path){paste0('clone', path)})
 tree_json_path = sprintf('%s/tree_paths.json',output_dir)
 write(toJSON(tree_path_clone_names), tree_json_path)
 
-alt_trees = tree_object$graph_pyclone$alt_trees
 clonality_table = tree_object$clonality_out$clonality_table_corrected
 ccf_cluster_table = tree_object$nested_pyclone$ccf_cluster_table
 trunk = tree_object$graph_pyclone$trunk 
-cp_table = get_cp_table(alt_trees, 1, clonality_table, ccf_cluster_table, trunk)
+cp_table = get_cp_table(alt_trees, selected_tree_index, clonality_table, ccf_cluster_table, trunk)
 cp_table_path = sprintf('%s/cp_table.csv',output_dir)
 write.csv(cp_table, cp_table_path, row.names = FALSE)
 print('Done')
