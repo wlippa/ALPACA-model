@@ -197,6 +197,11 @@ selected_tree_index = as.numeric(args$CONIPHER_tree_index)
 output_dir = args$output_dir
 
 alt_trees = tree_object$graph_pyclone$alt_trees
+number_of_trees = length(alt_trees)
+if (selected_tree_index < 1 || selected_tree_index > number_of_trees) {
+  stop(sprintf("Selected tree index %d is out of bounds. There are %d trees available.", 
+               selected_tree_index, number_of_trees))
+}
 selected_tree = alt_trees[[selected_tree_index]]
 tree_paths = extractTreeGraphPaths(tree_graph = selected_tree)
 tree_path_clone_names = lapply(tree_paths, function(path){paste0('clone', path)})
