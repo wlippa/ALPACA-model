@@ -1,4 +1,5 @@
 # ALPACA
+ALPACA is a computational method to infer allele- and clone-specific copy-number profiles of tumour clones from multi-sample bulk DNA sequencing. Read our [publication in Nature](https://www.nature.com/articles/s41586-025-09398-w) to learn more.
 ```
      _____ __    _____ _____ _____ _____
     |  _  |  |  |  _  |  _  |     |  _  |
