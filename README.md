@@ -108,9 +108,9 @@ These should be stored in a data frame with the following columns:
 
 |segment|sample|cpnA|cpnB|tumour_id|
 |--------|--------|--------|--------|--------|
-|1_6204266_6634901|U_LTX0000_SU_T1.R1|3.2|2.0|LTX0000|
-|1_6204266_6634901|U_LTX0000_SU_T1.R2|3.3|2.3|LTX0000|
-|1_6204266_6634901|U_LTX0000_SU_T1.R3|3.4|2.0|LTX0000|
+|1_6204266_6634901|U_LTX0000_SU_T1.R1|3.2|2.0|LTX0000-Tumour1|
+|1_6204266_6634901|U_LTX0000_SU_T1.R2|3.3|2.3|LTX0000-Tumour1|
+|1_6204266_6634901|U_LTX0000_SU_T1.R3|3.4|2.0|LTX0000-Tumour1|
 
 The table above shows the input for one genomic segment located on chromosome 1, starting at the base 6204266 and ending at 6634901 (encoded in the segment name as `<chr>_<start>_<end>`). Column 'sample' contains sample names of the tumour: this example contains 3 different samples (R1, R2 and R3) obtained from a single tumour (`U_LTX0000_SU_T1`). The sample names are arbitrary, but must be coherent within the entire input (including other input files). Fractional, allele-specific copy-numbers are stored in columns `cpnA` and `cpnB` and lastly column `tumour_id` stores the identifier of the tumour.
 
@@ -127,8 +127,8 @@ This table (called `ci_table.csv`) is similar to the ALPACA_input_table but cont
 
 |segment|sample|lower_CI_A|upper_CI_A|lower_CI_B|upper_CI_B|tumour_id|ci_value|
 |--------|--------|--------|--------|--------|--------|--------|--------|
-|10_38599060_42906137|LTX0000_SU_T1-R1|3.218|4.196|2.200|3.085|LTX0000|0.5|
-|10_38599060_42906137|LTX0000_SU_T1-R2|1.468|1.695|2.703|2.977|LTX0000|0.5|
+|10_38599060_42906137|LTX0000_SU_T1-R1|3.218|4.196|2.200|3.085|LTX0000-Tumour1|0.5|
+|10_38599060_42906137|LTX0000_SU_T1-R2|1.468|1.695|2.703|2.977|LTX0000-Tumour1|0.5|
 
 <!-- TOC --><a name="3-clone-proportions-table"></a>
 #### 3. Clone proportions table
@@ -181,7 +181,7 @@ A more complex tree, with name of clones consistent with names used in the `cp_t
 Overall, for each tumour we expect the following files:
 
 ```bash
-LTX0000
+LTX0000-Tumour1
 ├── ALPACA_input_table.csv
 ├── ci_table.csv
 ├── cp_table.csv
@@ -219,9 +219,9 @@ save(results, file = paste0(patient, "-refphase-results.RData"))
 This is how your input directory for a single tumour should look like:
 
 ```bash
-LTX000
-├── LTX0000-refphase-results.RData
-└── LTX0000.tree.RDS
+LTX0000-Tumour1
+├── LTX0000-Tumour1-refphase-results.RData
+└── LTX0000-Tumour1.tree.RDS
 ```
 
 Using these two files, run the input-conversion command which should be available in your system after installing ALPACA.
@@ -229,7 +229,7 @@ Using these two files, run the input-conversion command which should be availabl
 E.g.:
 
 ```bash
-tumour_id="LTX000"
+tumour_id="LTX0000-Tumour1"
 refphase_rData="examples/simple_pipeline/${tumour_id}/refphase/${tumour_id}-refphase-results.RData"
 CONIPHER_tree_object="examples/simple_pipeline/${tumour_id}/conipher/output/${tumour_id}.tree.RDS"
 output_dir="examples/simple_pipeline/${tumour_id}/alpaca/input"
@@ -247,11 +247,11 @@ Make sure that your 'tumour_id' is the same as 'CASE_ID' in CONIPHER output and 
 Converting the input might take a while and you will see this output while the program runs:
 
 ```bash
-Tumour ID: LTX0000
+Tumour ID: LTX0000-Tumour1
 Running input_conversion - it may take a few minutes
-Argument 4 (examples/example_cohort/input/LTX0000/LTX0000-refphase-results.RData): Exists
-Argument 6 (examples/example_cohort/input/LTX0000/LTX0000.tree.RDS): Exists
-Argument 8 (examples/example_cohort/input/LTX0000): Exists
+Argument 4 (examples/example_cohort/input/LTX0000-Tumour1/LTX0000-Tumour1-refphase-results.RData): Exists
+Argument 6 (examples/example_cohort/input/LTX0000-Tumour1/LTX0000-Tumour1.tree.RDS): Exists
+Argument 8 (examples/example_cohort/input/LTX0000-Tumour1): Exists
 /Users/pp/miniforge3/envs/main/lib/python3.13/site-packages/alpaca/scripts/submodules/alpaca_input_formatting/input_conversion.sh
 ```
 
