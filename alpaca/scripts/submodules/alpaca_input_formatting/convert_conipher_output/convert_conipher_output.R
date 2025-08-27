@@ -177,7 +177,7 @@ option_list = list(
   make_option(c("--CONIPHER_tree_object"), type="character", 
               help="path to CONIPHER tree object"),
   make_option(c("--CONIPHER_tree_index"), type="character",
-              help="selected CONIPHER tree index"),
+              help="selected CONIPHER tree index", default="1"),
   make_option(c("--output_dir"), type="character", 
               help="output directory")
 )
