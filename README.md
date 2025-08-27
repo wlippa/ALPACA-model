@@ -230,9 +230,9 @@ E.g.:
 
 ```bash
 tumour_id="LTX0000-Tumour1"
-refphase_rData="examples/simple_pipeline/${tumour_id}/refphase/${tumour_id}-refphase-results.RData"
-CONIPHER_tree_object="examples/simple_pipeline/${tumour_id}/conipher/output/${tumour_id}.tree.RDS"
-output_dir="examples/simple_pipeline/${tumour_id}/alpaca/input"
+refphase_rData="examples/example_cohort/input/${tumour_id}/${tumour_id}-refphase-results.RData"
+CONIPHER_tree_object="examples/example_cohort/input/${tumour_id}/${tumour_id}.tree.RDS"
+output_dir="examples/example_cohort/input/${tumour_id}"
 
 alpaca input-conversion \
     --tumour_id $tumour_id \
