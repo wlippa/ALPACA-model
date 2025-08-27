@@ -70,13 +70,13 @@ def get_parser():
     parser.add_argument(
         "--use_two_objectives",
         type=int,
-        default=False,
+        default=1,
         help="Whether to use two objectives or not. First objective minimises number of segments outside CI, second objective minimises error.",
     )
     parser.add_argument(
         "--use_minimise_events_to_diploid",
         type=int,
-        default=False,
+        default=1,
         help="Whether to minimize events to diploid or not. If true, ALPACA will introduce diploid pseudo-clone at the root of the tree.",
     )
     parser.add_argument(
