@@ -15,6 +15,8 @@ usage() {
     echo "  --help                   Display this help message"
     exit 1
 }
+# default arguments
+CONIPHER_tree_index=1
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
@@ -22,7 +24,7 @@ while [[ "$#" -gt 0 ]]; do
         --tumour_id) tumour_id="$2"; shift ;;
         --refphase_rData) refphase_rData="$2"; shift ;;
         --CONIPHER_tree_object) CONIPHER_tree_object="$2"; shift ;;
-        --CONIPHER_tree_index) CONIPHER_tree_index="${2:-1}"; shift ;;
+        --CONIPHER_tree_index) CONIPHER_tree_index="$2"; shift ;;
         --output_dir) output_dir="$2"; shift ;;
         --help) usage ;;
         *) echo "Unknown parameter passed: $1"; usage ;;
@@ -46,14 +48,14 @@ mkdir -p $output_dir
 
 # exit if refphase_rData does not exist:
 if [ ! -f $refphase_rData ]; then
-    echo "Error: refphase_rData (${refphase_rData}) file does not exist"
+    echo "Error: refphase_rData (${refphase_rData}) file does not exist" >&2
     exit 1
 fi
 
 # Check if Rscript is available
 if ! command -v Rscript &> /dev/null; then
-    echo "Error: Rscript is not available in the environment."
-    echo "Please install R and ensure Rscript is in your PATH."
+    echo "Error: Rscript is not available in the environment." >&2
+    echo "Please install R and ensure Rscript is in your PATH." >&2
     exit 1
 fi
 

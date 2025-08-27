@@ -232,13 +232,13 @@ E.g.:
 tumour_id="LTX0000-Tumour1"
 refphase_rData="examples/example_cohort/input/${tumour_id}/${tumour_id}-refphase-results.RData"
 CONIPHER_tree_object="examples/example_cohort/input/${tumour_id}/${tumour_id}.tree.RDS"
-output_dir="examples/example_cohort/input/${tumour_id}"
+conversion_output_dir="examples/example_cohort/input/${tumour_id}"
 
 alpaca input-conversion \
     --tumour_id $tumour_id \
     --refphase_rData $refphase_rData \
     --CONIPHER_tree_object $CONIPHER_tree_object \
-    --output_dir $output_dir
+    --output_dir $conversion_output_dir
     
 ```
 
@@ -255,12 +255,29 @@ Argument 8 (examples/example_cohort/input/LTX0000-Tumour1): Exists
 /Users/pp/miniforge3/envs/main/lib/python3.13/site-packages/alpaca/scripts/submodules/alpaca_input_formatting/input_conversion.sh
 ```
 
+In some cases, CONIPHER outputs multiple phylogenetic tree. If there is a specific tree you would like to use, add CONIPHER_tree_index option:
+
+selected_CONIPHER_tree_index=13
+
+```bash
+alpaca input-conversion \
+    --tumour_id $tumour_id \
+    --refphase_rData $refphase_rData \
+    --CONIPHER_tree_object $CONIPHER_tree_object \
+    --output_dir $conversion_output_dir \
+    --CONIPHER_tree_index $selected_CONIPHER_tree_index
+```
+
+Default value of this argument is 1.
+
 <!-- TOC --><a name="running-alpaca-1"></a>
 ### Running ALPACA
 
 Once input is generated, ALPACA can be run with:
 
 ```bash
+input_tumour_directory="examples/example_cohort/input/${tumour_id}"
+output_directory="examples/example_cohort/output/${tumour_id}"
 alpaca run \
     --input_tumour_directory "${input_tumour_directory}" \
     --output_directory "${output_directory}"
@@ -269,7 +286,7 @@ alpaca run \
 Your input_tumour_directory should look like this:
 
 ```bash
-LTX000
+LTX0000-Tumour1
 ├── ALPACA_input_table.csv
 ├── ci_table.csv
 ├── cp_table.csv
@@ -280,8 +297,8 @@ but if you started from CONIPHER and Refphase, intermediary input files will als
 
 ```bash
 ├── ALPACA_input_table.csv  <- ALPACA input
-├── LTX0000-refphase-results.RData <- Refphase input
-├── LTX0000.tree.RDS  <- CONIPHER input
+├── LTX0000-Tumour1-refphase-results.RData <- Refphase input
+├── LTX0000-Tumour1.tree.RDS  <- CONIPHER input
 ├── ci_table.csv  <- ALPACA input
 ├── cp_table.csv  <- ALPACA input
 ├── phased_segs.tsv <- Intermediary input files
@@ -298,20 +315,20 @@ ALPACA operates sequentially on each genomic segment. During this process, the `
 
 ```bash
 ├── ALPACA_input_table.csv
-├── LTX0000-refphase-results.RData
-├── LTX0000.tree.RDS
+├── LTX0000-Tumour1-refphase-results.RData
+├── LTX0000-Tumour1.tree.RDS
 ├── ci_table.csv
 ├── cp_table.csv
 ├── phased_segs.tsv
 ├── phased_snps.tsv
 ├── purity_ploidy.tsv
 ├── segments
-│   ├── ALPACA_input_table_LTX0000_10_38599060_42906137.csv
-│   ├── ALPACA_input_table_LTX0000_10_42906138_45934831.csv
-│   ├── ALPACA_input_table_LTX0000_10_45934832_74237001.csv
-│   ├── ALPACA_input_table_LTX0000_10_74237002_135381927.csv
-│   ├── ALPACA_input_table_LTX0000_10_95074_38406884.csv
-│   ├── ALPACA_input_table_LTX0000_11_17317215_44596409.csv
+│   ├── ALPACA_input_table_LTX0000-Tumour1_10_38599060_42906137.csv
+│   ├── ALPACA_input_table_LTX0000-Tumour1_10_42906138_45934831.csv
+│   ├── ALPACA_input_table_LTX0000-Tumour1_10_45934832_74237001.csv
+│   ├── ALPACA_input_table_LTX0000-Tumour1_10_74237002_135381927.csv
+│   ├── ALPACA_input_table_LTX0000-Tumour1_10_95074_38406884.csv
+│   ├── ALPACA_input_table_LTX0000-Tumour1_11_17317215_44596409.csv
 └── tree_paths.json  <- ALPACA input
 ```
 
@@ -319,56 +336,68 @@ Solution for each segment is saved in the output directory. While the programme 
 
 ```bash
 ALPACA-model/examples/example_cohort/output/LTX0000
-├── optimal_LTX0000_10_38599060_42906137.csv
-├── optimal_LTX0000_10_42906138_45934831.csv
-├── optimal_LTX0000_10_45934832_74237001.csv
-├── optimal_LTX0000_10_74237002_135381927.csv
-├── optimal_LTX0000_10_95074_38406884.csv
-├── optimal_LTX0000_11_17317215_44596409.csv
-├── optimal_LTX0000_11_193863_2164677.csv
-├── optimal_LTX0000_11_2164678_3249658.csv
-├── optimal_LTX0000_11_3249659_17317214.csv
-└── optimal_LTX0000_11_44596410_49598207.csv
+├── optimal_LTX0000-Tumour1_10_38599060_42906137.csv
+├── optimal_LTX0000-Tumour1_10_42906138_45934831.csv
+├── optimal_LTX0000-Tumour1_10_45934832_74237001.csv
+├── optimal_LTX0000-Tumour1_10_74237002_135381927.csv
+├── optimal_LTX0000-Tumour1_10_95074_38406884.csv
+├── optimal_LTX0000-Tumour1_11_17317215_44596409.csv
+├── optimal_LTX0000-Tumour1_11_193863_2164677.csv
+├── optimal_LTX0000-Tumour1_11_2164678_3249658.csv
+├── optimal_LTX0000-Tumour1_11_3249659_17317214.csv
+└── optimal_LTX0000-Tumour1_11_44596410_49598207.csv
 ```
 
 Once all the segments are done, these intermediary files are concatenated into single output files and deleted. The final output for a single tumour will contain two files:
 
 ```bash
-ALPACA-model/examples/example_cohort/output/LTX0000
+ALPACA-model/examples/example_cohort/output/LTX0000-Tumour1
 ├── cn_change_to_ancestor.csv
-└──final_LTX0000.csv
+└── ALPACA_output_LTX0000-Tumour1.csv
 ```
 
-`final_LTX0000.csv` contains the clone-specific copy-numbers for both alleles:
+`ALPACA_output_LTX0000-Tumour1.csv` contains the clone-specific copy-numbers for both alleles:
 
 |tumour_id|segment|clone|pred_CN_A|pred_CN_B|
 |--------|--------|--------|--------|--------|
-|LTX0000|2_41509_27282430|clone17|2|1|
-|LTX0000|2_41509_27282430|clone20|2|1|
-|LTX0000|2_41509_27282430|clone14|1|2|
-|LTX0000|2_41509_27282430|clone9|1|1|
-|LTX0000|2_41509_27282430|clone15|3|1|
+|LTX0000-Tumour1|2_41509_27282430|clone17|2|1|
+|LTX0000-Tumour1|2_41509_27282430|clone20|2|1|
+|LTX0000-Tumour1|2_41509_27282430|clone14|1|2|
+|LTX0000-Tumour1|2_41509_27282430|clone9|1|1|
+|LTX0000-Tumour1|2_41509_27282430|clone15|3|1|
 
 `cn_change_to_ancestor.csv` contains the information on the copy number change between each clone and its ancestor:
 
 |tumour_id|segment|clone|pred_CN_A|pred_CN_B|parent|parent_pred_cpnA|parent_pred_cpnB|cn_dist_to_parent_A|cn_dist_to_parent_B|
 |--------|--------|--------|--------|--------|--------|--------|--------|--------|--------|
-|LTX0000|2_41509_27282430|clone17|2|1|clone6|2|1|0|0|
-|LTX0000|2_41509_27282430|clone20|2|1|clone4|3|1|-1|0|
-|LTX0000|2_41509_27282430|clone14|1|2|clone1|1|2|0|0|
-|LTX0000|2_41509_27282430|clone9|1|1|clone2|1|1|0|0|
-|LTX0000|2_41509_27282430|clone15|3|1|clone11|2|1|1|0|
+|LTX0000-Tumour1|2_41509_27282430|clone17|2|1|clone6|2|1|0|0|
+|LTX0000-Tumour1|2_41509_27282430|clone20|2|1|clone4|3|1|-1|0|
+|LTX0000-Tumour1|2_41509_27282430|clone14|1|2|clone1|1|2|0|0|
+|LTX0000-Tumour1|2_41509_27282430|clone9|1|1|clone2|1|1|0|0|
+|LTX0000-Tumour1|2_41509_27282430|clone15|3|1|clone11|2|1|1|0|
 
 <!-- TOC --><a name="available-options"></a>
 
 ### Available options
 
 ```bash
+--time_limit <int>
+```
+
+Time limit for single gurobi iteration, by defalt set to 60. For very complex cases, the iteration time might exceed 60 seconds, in which case the optimisation is stopped and current best solution is selected. Please not that ALPACA performs multiple iterations on each segment, this argument restricts time limit for single such iteration.
+
+```bash
+--cpu <int>
+
+```
+
+Number of available CPUs (default = 1). 
+
+```bash
 --overwrite_output <value>
 ```
 
 Controls whether ALPACA overwrites existing temporary files.
-Allowed values: 0 (do not overwrite, default), 1 (overwrite).
-
-In the default 'tumour' mode, ALPACA iterates sequentially over each segment, saving temporary .csv tables with solutions for each. It then concatenates all segment solutions into one final output file. On systems with time constraints, if ALPACA isn't allocated enough time, the run might be incomplete, resulting in only some segment solutions being present, but not the final file. In such situations, if the user restarts ALPACA, it will begin from scratch and overwrite all previously created files. To reuse these files, run ALPACA with the --overwrite_output 1 option. The default setting for this option is --overwrite_output 0 to prevent unintended reuse of temporary files.
+Allowed values: 0 (do not overwrite), 1 (overwrite, default).
+In the default 'tumour' mode, ALPACA iterates sequentially over each segment, saving temporary .csv tables with solutions for each. It then concatenates all segment solutions into one final output file. On systems with time constraints, if ALPACA isn't allocated enough time, the run might be incomplete, resulting in only some segment solutions being present, but not the final file. In such situations, if the user restarts ALPACA, it will begin from scratch and overwrite all previously created files. To reuse these files, run ALPACA with the --overwrite_output 0 option. The default setting for this option is --overwrite_output 1 to prevent unintended reuse of temporary files.
 
