@@ -68,16 +68,19 @@ refphase_segments_path="${output_dir}/phased_segs.tsv"
 refphase_snps_path="${output_dir}/phased_snps.tsv"
 refphase_purity_ploidy_path="${output_dir}/purity_ploidy.tsv"
 
+echo "Extracting data from CONIPHER output"
+Rscript "${SCRIPT_DIR}/convert_conipher_output/convert_conipher_output.R" \
+    --CONIPHER_tree_object $CONIPHER_tree_object \
+    --CONIPHER_tree_index $CONIPHER_tree_index \
+    --output_dir $output_dir
+    
 echo "Converting REFPHASE output"
 python3 "${SCRIPT_DIR}/convert_refphase_output/convert_refphase.py" \
     --tumour_id $tumour_id \
     --output_dir $output_dir \
     --refphase_segments $refphase_segments_path \
     --refphase_snps $refphase_snps_path \
-    --refphase_purity_ploidy $refphase_purity_ploidy_path
+    --refphase_purity_ploidy $refphase_purity_ploidy_path \
+    --conipher_cp_table "${output_dir}/cp_table.csv" \
 
-echo "Extracting data from CONIPHER output"
-Rscript "${SCRIPT_DIR}/convert_conipher_output/convert_conipher_output.R" \
-    --CONIPHER_tree_object $CONIPHER_tree_object \
-    --CONIPHER_tree_index $CONIPHER_tree_index \
-    --output_dir $output_dir
+

@@ -27,6 +27,13 @@ parser.add_argument(
     required=True,
 )
 
+parser.add_argument(
+    "--conipher_cp_table",
+    type=str,
+    help="Path to CONIPHER cp_table TSV (required)",
+    required=True,
+)
+
 # options
 parser.add_argument(
     "--heterozygous_SNPs_threshold",
@@ -61,8 +68,8 @@ os.makedirs(output_dir, exist_ok=True)
 refphase_segments = pd.read_csv(args.refphase_segments, sep="\t")
 refphase_snps = pd.read_csv(args.refphase_snps, sep="\t")
 refphase_purity_ploidy = pd.read_csv(args.refphase_purity_ploidy, sep="\t")
-
-
+cp_table = pd.read_csv(args.conipher_cp_table, index_col='clone')
+conipher_samples = cp_table.columns
 # rename columns:
 refphase_segments = refphase_segments.rename(
     columns={
@@ -152,6 +159,9 @@ for allele in ["A", "B"]:
     assert all(
         ci_table[f"cpn{allele}"] < ci_table[f"upper_CI_{allele}"]
     ), f"cpn{allele} < upper_CI_{allele}"
+
+# keep only samples present in CONIPHER cp_table:
+ci_table = ci_table[ci_table["sample"].isin(conipher_samples)]
 
 alpaca_input = ci_table.copy()
 ci_table.drop(columns=["cn_a", "cn_b", "cpnA", "cpnB", "was_cn_updated"], inplace=True)
