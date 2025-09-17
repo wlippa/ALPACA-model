@@ -10,7 +10,7 @@ tests/test_output/*
 dev/data/*
 .DS_Store
 TODO.md
-dev/scratch.R
+dev/
 examples/**/*.csv
 examples/**/*.tsv
 examples/**/*.json
