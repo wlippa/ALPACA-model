@@ -1,51 +1,78 @@
 #!/usr/bin/env python3
-import os
 import sys
-from tqdm import tqdm
-from io import StringIO
-from alpaca.ALPACA_segment_solution_class import SegmentSolution
-from alpaca.utils import (
-    show_version,
-    show_help,
-    print_logo,
-    concatenate_output,
-    set_run_mode,
-    create_logger,
-    save_dataframe_to_csv,
-)
-from alpaca.make_configuration import make_config
-from alpaca.analysis import get_cn_change_to_ancestor
-import alpaca.scripts as scripts
+
+try:
+    from importlib.metadata import version, PackageNotFoundError
+except Exception:
+    try:
+        from importlib_metadata import version, PackageNotFoundError  # type: ignore
+    except Exception:
+        # If importlib.metadata isn't available, provide a fallback function
+        def version(pkg_name):
+            return "unknown"
+
+
+def _print_version():
+    try:
+        v = version("alpaca")
+    except Exception:
+        v = "unknown"
+    print(v)
 
 
 def main():
+    command = sys.argv[1].lower() if len(sys.argv) > 1 else ""
 
-    if len(sys.argv) > 1:
-        command = sys.argv[1].lower()
     if command in ["version", "--version", "-v"]:
-        show_version()
+        _print_version()
         return
-    elif command in ["help", "--help", "-h"]:
+
+    if command in ["help", "--help", "-h"]:
+        from alpaca.utils import show_help
+
         show_help()
         return
-    elif command == "input-conversion":
+
+    if command == "input-conversion":
+        import alpaca.scripts as scripts
+
         scripts.input_conversion()
         return
     elif command == "ancestor-delta":
+        import alpaca.scripts as scripts
+
         scripts.run_get_cn_change_to_ancestor()
         return
     elif command == "ccd":
+        import alpaca.scripts as scripts
+
         scripts.run_calculate_ccd()
         return
     elif command == "run":
         run_alpaca()
-    else:
-        print(f"Unknown command: {command}")
-        print("Run 'alpaca help' for available commands.")
-        sys.exit(1)
+        return
+
+    print(f"Unknown command: {command}")
+    print("Run 'alpaca help' for available commands.")
+    sys.exit(1)
 
 
 def run_alpaca():
+    import os
+    from tqdm import tqdm
+    from io import StringIO
+
+    from alpaca.ALPACA_segment_solution_class import SegmentSolution
+    from alpaca.utils import (
+        print_logo,
+        concatenate_output,
+        set_run_mode,
+        create_logger,
+        save_dataframe_to_csv,
+    )
+    from alpaca.make_configuration import make_config
+    from alpaca.analysis import get_cn_change_to_ancestor
+
     # Configure logging
     logger = create_logger(name="ALPACA", log_dir="logs")
     logger.info("Starting ALPACA")
