@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "alpaca"
-version = "0.2.0"
+dynamic = ["version"]
 description = "Package for ALPACA model - Allele-specific Phylogenetic Analysis of Copy-number Aberrations"
 authors = [{ name = "Piotr Pawlik"}]
 license = { file = "LICENSE" }
@@ -26,6 +26,9 @@ include = [
     "/alpaca",
     "/alpaca/submodules"
 ]
+
+[tool.hatch.version]
+source = "vcs"
 
 [tool.hatch.envs.dev.scripts]
 debug-input = "python -m pdb -c continue -m alpaca.scripts input_conversion {args}"
