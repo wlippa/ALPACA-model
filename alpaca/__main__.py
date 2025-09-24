@@ -78,6 +78,16 @@ def run_alpaca():
     logger.info("Starting ALPACA")
     config = make_config(sys.argv[1:])
     debug = config["preprocessing_config"]["debug"]
+    output_all = config["preprocessing_config"].get("output_all_solutions", False)
+    if output_all:
+        out_dir = config["preprocessing_config"].get("output_directory", "./")
+        all_solutions_dir = os.path.join(out_dir, "all_solutions")
+        try:
+            os.makedirs(all_solutions_dir, exist_ok=True)
+            logger.info(f"Created directory for all solutions: {all_solutions_dir}")
+        except Exception as e:
+            logger.error(f"Failed to create all_solutions directory {all_solutions_dir}: {e}")
+            raise
     if debug:
         logger.setLevel("DEBUG")
         logger.info("Debug mode is ON")

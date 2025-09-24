@@ -527,15 +527,15 @@ class SegmentSolution:
             self.optimal_solution.drop(
                 columns=[
                     "allowed_complexity",
-                    "complexity",
                     "variability_penalty_count",
                     "state_change_count",
                     "event_count",
                 ],
                 inplace=True,
+                errors="ignore",
             )
             self.optimal_solution = self.optimal_solution[
-                ["tumour_id", "segment", "clone", "pred_CN_A", "pred_CN_B"]
+                ["tumour_id", "segment", "clone", "pred_CN_A", "pred_CN_B", "complexity"]
             ]
 
     def get_all_simplified_solution(self, s=None):
@@ -602,8 +602,42 @@ class SegmentSolution:
             self.optimal_solution.clone != "diploid"
         ]
         if self.output_all_solutions:
-            all_solutions = self.get_all_simplified_solution()
-            all_solutions_output_path = output_path.replace("optimal", "all")
+            try:
+                # reconstruct optimal complexity from the combined solutions
+                opt_rows = self.solutions_combined.query(
+                    f"allowed_complexity == {self.optimal_solution_index}"
+                ).copy()
+                elbow = opt_rows["complexity"].iloc[0]
+            except Exception:
+                # fallback: if complexity still present on optimal_solution use it,
+                # otherwise set elbow to None and skip elbow_offset computation
+                elbow = (
+                    self.optimal_solution["complexity"].iloc[0]
+                    if "complexity" in self.optimal_solution.columns
+                    else None
+                )
+
+            all_solutions = self.solutions_combined[
+                ["clone", "pred_CN_A", "pred_CN_B", "complexity"]
+            ].copy()
+            # remove diploid clone from the all_solutions table as well
+            all_solutions = all_solutions[all_solutions.clone != "diploid"]
+            all_solutions["tumour_id"] = self.tumour_id
+            all_solutions["segment"] = self.segment
+            if elbow is not None:
+                complexities = all_solutions.complexity.unique()
+                rescaled = rescale_elbow_points(complexities, elbow)
+                all_solutions["elbow_offset"] = all_solutions.complexity.map(rescaled)
+            else:
+                all_solutions["elbow_offset"] = 0
+
+            # write all solutions into a dedicated subdirectory for clarity
+            all_dir = os.path.join(output_dir, "all_solutions")
+            os.makedirs(all_dir, exist_ok=True)
+            all_solutions_output_name = os.path.basename(output_path).replace(
+                "optimal", "all"
+            )
+            all_solutions_output_path = os.path.join(all_dir, all_solutions_output_name)
             all_solutions.to_csv(all_solutions_output_path, index=False)
         if self.output_model_selection_table:
             output_model_selection_table = self.elbow_search_df_strictly_decreasing
@@ -611,9 +645,27 @@ class SegmentSolution:
                 f"{output_dir}/{self.tumour_id}_{self.segment}_model_selection_table.csv",
                 index=False,
             )
+        # add runtime metadata when debugging
+        total_run_time = round(end_time - self.start_time)
         if self.debug:
-            total_run_time = round(end_time - self.start_time)
             self.optimal_solution["run_time_seconds"] = total_run_time
+
+        # Before saving the final optimal solution, drop internal columns including
+        # 'complexity' to keep the output minimal for non-debug runs.
+        if not self.debug:
+            self.optimal_solution.drop(
+                columns=[
+                    "allowed_complexity",
+                    "complexity",
+                    "variability_penalty_count",
+                    "state_change_count",
+                    "event_count",
+                ],
+                inplace=True,
+                errors="ignore",
+            )
+
+        # always write the optimal solution file
         self.optimal_solution.to_csv(output_path, index=False)
         if os.path.exists(output_path):
             logger.info("Segment output created")
