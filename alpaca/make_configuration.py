@@ -133,6 +133,12 @@ def get_parser():
         help="Name of file containing confidence intervals for SNP copynumbers",
     )
     parser.add_argument("--debug", default=False, action="store_true")
+    parser.add_argument(
+        "--output_all_solutions",
+        default=False,
+        action="store_true",
+        help="If set, write all model solutions (not only the optimal) into a subdirectory of the output directory",
+    )
 
     return parser
 
@@ -179,6 +185,7 @@ def make_config(args_in):
         "overwrite_output": args.overwrite_output,
         "ci_table_name": args.ci_table_name,
         "debug": args.debug,
+        "output_all_solutions": args.output_all_solutions,
         "env": ENV,
         "output_directory": args.output_directory,
     }
