@@ -397,6 +397,18 @@ Number of available CPUs (default = 1).
 --overwrite_output <value>
 ```
 
+```bash
+--output_all_solutions <0|1>
+```
+
+When `--output_all_solutions` is enabled, ALPACA will save every computed solution for each processed segment into an `all_solutions/<segment>` subdirectory alongside the usual optimal output. For each segment this includes:
+
+- a CSV with all model solutions (clone, pred_CN_A, pred_CN_B, complexity and an `elbow_offset` - how far from seleccted elbow each solution is),
+- an elbow table CSV annotated with which complexity was selected by the knee-finding algorithm, and
+- a simple PNG plot showing D_score vs allowed_complexity with the selected complexity marked.
+
+Note: this option can produce a large number of files (one set per segment). We recommend using it only for selected segments when debugging or tuning model/optimization settings.
+
 Controls whether ALPACA overwrites existing temporary files.
 Allowed values: 0 (do not overwrite), 1 (overwrite, default).
 In the default 'tumour' mode, ALPACA iterates sequentially over each segment, saving temporary .csv tables with solutions for each. It then concatenates all segment solutions into one final output file. On systems with time constraints, if ALPACA isn't allocated enough time, the run might be incomplete, resulting in only some segment solutions being present, but not the final file. In such situations, if the user restarts ALPACA, it will begin from scratch and overwrite all previously created files. To reuse these files, run ALPACA with the --overwrite_output 0 option. The default setting for this option is --overwrite_output 1 to prevent unintended reuse of temporary files.
