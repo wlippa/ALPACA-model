@@ -11,6 +11,10 @@ import time
 from alpaca.ALPACA_model_class import Model
 from alpaca.utils import read_tree_json
 import logging
+try:
+    import matplotlib.pyplot as plt  # type: ignore
+except Exception:
+    plt = None
 
 
 def ensure_elbow_strictly_decreasing(df):
@@ -550,6 +554,81 @@ class SegmentSolution:
         all_solutions["elbow_offset"] = all_solutions.complexity.map(rescaled)
         return all_solutions
 
+    def _get_all_solutions_subdir_name(self, all_dir: str) -> str:
+        all_dir_seg = os.path.join(all_dir, self.segment)
+        os.makedirs(all_dir_seg, exist_ok=True)
+        return all_dir_seg
+
+    def _save_all_solutions(self, all_dir: str, all_solutions: pd.DataFrame) -> str:
+        all_dir_seg = self._get_all_solutions_subdir_name(all_dir)
+        all_solutions_output_name = os.path.basename(self.create_output_path()).replace(
+            "optimal", "all"
+        )
+
+        all_solutions_output_path = os.path.join(all_dir_seg, all_solutions_output_name)
+        all_solutions.to_csv(all_solutions_output_path, index=False)
+        return all_solutions_output_path
+
+    def _save_elbow_table(self, all_dir: str) -> typing.Tuple[typing.Optional[str], typing.Optional[pd.DataFrame]]:
+        try:
+            if hasattr(self, "elbow_search_df") and self.elbow_search_df is not None:
+                elbow_df = self.elbow_search_df.copy()
+            else:
+                elbow_df = (
+                    self.solutions_combined[["complexity", "D_score", "CI_score", "allowed_complexity"]]
+                    .drop_duplicates(subset="allowed_complexity", keep="first")
+                    .sort_values("allowed_complexity")
+                    .reset_index(drop=True)
+                )
+            elbow_meta = {
+                "knee_s_min": self.elbow.get("s_min") if isinstance(self.elbow, dict) else None,
+                "knee_s_raw": self.elbow.get("s_raw") if isinstance(self.elbow, dict) else None,
+                "knee_s_strictly_decreasing": self.elbow.get("s_strictly_decreasing") if isinstance(self.elbow, dict) else None,
+                "knee_raw_code": self.elbow.get("raw_code") if isinstance(self.elbow, dict) else None,
+                "knee_dec_code": self.elbow.get("dec_code") if isinstance(self.elbow, dict) else None,
+                "selected_by_s_type": self.optimal_solution_index,
+                "selected_s_type": self.s_type,
+            }
+            for k, v in elbow_meta.items():
+                elbow_df[k] = v
+            all_dir_seg = self._get_all_solutions_subdir_name(all_dir)
+            elbow_output_path = os.path.join(all_dir_seg, f"{self.tumour_id}_{self.segment}_elbow_table.csv")
+            elbow_df.to_csv(elbow_output_path, index=False)
+            return elbow_output_path, elbow_df
+        except Exception:
+            return None, None
+
+    def _plot_elbow(self, all_dir: str, elbow_df: pd.DataFrame) -> typing.Optional[str]:
+        """Create a simple elbow plot (D_score vs allowed_complexity) and mark the selected complexity. Returns path or None on failure."""
+        try:
+            if plt is None:
+                return None
+            fig, ax = plt.subplots()
+            x = elbow_df["allowed_complexity"]
+            y = elbow_df["D_score"]
+            ax.plot(x, y, marker="o", linestyle="-", label="D_score")
+            selected = self.optimal_solution_index
+            if selected is not None:
+                ax.axvline(selected, color="orange", linestyle="--", label=f"selected: {selected}")
+                sel_y = None
+                try:
+                    sel_y = float(elbow_df.query(f"allowed_complexity == {selected}").D_score.iloc[0])
+                except Exception:
+                    sel_y = None
+                if sel_y is not None:
+                    ax.plot([selected], [sel_y], marker="*", color="red", markersize=12)
+            ax.set_xlabel("allowed_complexity")
+            ax.set_ylabel("D_score")
+            ax.set_title(f"Elbow curve: {self.tumour_id} {self.segment}")
+            ax.legend()
+            all_dir_seg = self._get_all_solutions_subdir_name(all_dir)
+            plot_path = os.path.join(all_dir_seg, f"{self.tumour_id}_{self.segment}_elbow_plot.png")
+            fig.savefig(plot_path, bbox_inches="tight")
+            plt.close(fig)
+            return plot_path
+        except Exception:
+            return None
+
     def set_directories(self):
         """Try to determine if the script is run from nextflow or not. In Nextflow, input files (copy number per segment),
         are expected to be in working directory. Otherwise, segments are expected to be in tumour_dir/segments.
@@ -631,14 +710,17 @@ class SegmentSolution:
             else:
                 all_solutions["elbow_offset"] = 0
 
-            # write all solutions into a dedicated subdirectory for clarity
+            # write all solutions and elbow artifacts into a dedicated subdirectory for clarity
             all_dir = os.path.join(output_dir, "all_solutions")
             os.makedirs(all_dir, exist_ok=True)
-            all_solutions_output_name = os.path.basename(output_path).replace(
-                "optimal", "all"
-            )
-            all_solutions_output_path = os.path.join(all_dir, all_solutions_output_name)
-            all_solutions.to_csv(all_solutions_output_path, index=False)
+            try:
+                self._save_all_solutions(all_dir, all_solutions)
+                elbow_path, elbow_df = self._save_elbow_table(all_dir)
+                if elbow_df is not None:
+                    self._plot_elbow(all_dir, elbow_df)
+            except Exception:
+                # best-effort; do not fail the run if elbow saving fails
+                pass
         if self.output_model_selection_table:
             output_model_selection_table = self.elbow_search_df_strictly_decreasing
             output_model_selection_table.to_csv(
