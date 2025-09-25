@@ -542,18 +542,6 @@ class SegmentSolution:
                 ["tumour_id", "segment", "clone", "pred_CN_A", "pred_CN_B", "complexity"]
             ]
 
-    def get_all_simplified_solution(self, s=None):
-        all_solutions = self.solutions_combined[
-            ["clone", "pred_CN_A", "pred_CN_B", "complexity"]
-        ].copy()
-        all_solutions["tumour_id"] = self.tumour_id
-        all_solutions["segment"] = self.segment
-        elbow = self.optimal_solution.complexity.iloc[0]
-        complexities = all_solutions.complexity.unique()
-        rescaled = rescale_elbow_points(complexities, elbow)
-        all_solutions["elbow_offset"] = all_solutions.complexity.map(rescaled)
-        return all_solutions
-
     def _get_all_solutions_subdir_name(self, all_dir: str) -> str:
         all_dir_seg = os.path.join(all_dir, self.segment)
         os.makedirs(all_dir_seg, exist_ok=True)
@@ -697,7 +685,7 @@ class SegmentSolution:
                 )
 
             all_solutions = self.solutions_combined[
-                ["clone", "pred_CN_A", "pred_CN_B", "complexity"]
+                ["clone", "pred_CN_A", "pred_CN_B", "complexity", "allowed_complexity"]
             ].copy()
             # remove diploid clone from the all_solutions table as well
             all_solutions = all_solutions[all_solutions.clone != "diploid"]
