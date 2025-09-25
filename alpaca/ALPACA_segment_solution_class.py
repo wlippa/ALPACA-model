@@ -617,6 +617,38 @@ class SegmentSolution:
         except Exception:
             return None
 
+    def _run_and_save_unconstrained(self, all_dir: str) -> typing.Optional[str]:
+        """Run the model once without enforcing the tree complexity constraint and save the resulting solution.
+        The result is saved as `all_max_<tumour_id>_<segment>.csv` inside all_dir. This run is NOT used for elbow search,
+        as it can interfere with how kneed finds the elbow.
+        """
+        try:
+            # instantiate Model with same config but disable tree complexity enforcement
+            model_kwargs = {**self.config.get("model_config", {}), "enforce_tree_complexity": False}
+            # ensure we do not change allowed_tree_complexity here; we let model compute unconstrained optimum
+            M = Model(
+                segment=self.segment,
+                ci_table=self.ci_table,
+                fractional_copy_number_table=self.input_table,
+                tree=self.tree,
+                clone_proportions=self.cp_table,
+                **model_kwargs,
+            )
+            M.model.optimize()
+            M.get_output()
+            sol = M.solution
+            sol = sol[sol.clone != "diploid"]
+            # add tumour and segment columns if needed
+            sol["tumour_id"] = self.tumour_id
+            sol["segment"] = self.segment
+            out_name = f"all_max_{self.tumour_id}_{self.segment}.csv"
+            all_dir_seg = self._get_all_solutions_subdir_name(all_dir)
+            out_path = os.path.join(all_dir_seg, out_name)
+            sol.to_csv(out_path, index=False)
+            return out_path
+        except Exception:
+            return None
+
     def set_directories(self):
         """Try to determine if the script is run from nextflow or not. In Nextflow, input files (copy number per segment),
         are expected to be in working directory. Otherwise, segments are expected to be in tumour_dir/segments.
@@ -706,6 +738,12 @@ class SegmentSolution:
                 elbow_path, elbow_df = self._save_elbow_table(all_dir)
                 if elbow_df is not None:
                     self._plot_elbow(all_dir, elbow_df)
+                # run an unconstrained (no tree_complexity_constr) max-complexity solution
+                # and save it separately so it does not interfere with elbow search
+                try:
+                    self._run_and_save_unconstrained(all_dir)
+                except Exception:
+                    pass
             except Exception:
                 # best-effort; do not fail the run if elbow saving fails
                 pass

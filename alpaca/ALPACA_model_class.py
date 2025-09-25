@@ -47,6 +47,7 @@ class Model:
         self.BestObjStop = None
         self.license = "local"
         self.gurobi_logs = ""
+        self.enforce_tree_complexity = True
 
         # override defaults:
         self.__dict__.update(kwargs)
@@ -209,10 +210,11 @@ class Model:
             name="total_complexity_components",
         )
         # total complexity cannot exceed allowed complexity
-        self.model.addConstr(
-            self.total_tree_complexity <= self.allowed_tree_complexity,
-            name="tree_complexity_constr",
-        )
+        if self.enforce_tree_complexity:
+            self.model.addConstr(
+                self.total_tree_complexity <= self.allowed_tree_complexity,
+                name="tree_complexity_constr",
+            )
 
         # ::::: set model sense and define objectives:
         self.model.ModelSense = GRB.MINIMIZE
