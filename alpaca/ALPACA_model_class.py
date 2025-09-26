@@ -15,6 +15,37 @@ class Model:
     Main class for ALPACA model
     """
 
+    @classmethod
+    def default_model_config(cls) -> dict:
+        """Return canonical default model configuration keys and values.
+
+        This centralizes defaults so callers (CLI/config builders) can import
+        these values and avoid duplicating defaults in multiple places.
+        """
+        return {
+            "homozygous_deletion_threshold": 1,
+            "homo_del_size_limit": 5 * 10**7,
+            "limit_homozygous_deletions_threshold_flag": True,
+            "add_event_count_constraints_flag": True,
+            "prevent_increase_from_zero_flag": True,
+            "add_state_change_count_constraints_flag": False,
+            "add_path_variability_penalty_constraints_flag": False,
+            "add_allow_only_one_non_directional_event_flag": True,
+            "variability_penalty": 0,
+            "allowed_tree_complexity": 1000,
+            "minimise_events_to_diploid": True,
+            "exclusive_amp_del": True,
+            "two_objectives": True,
+            "restrict_heterogeneity_flag": False,
+            "restrict_to_clonal_only_flag": False,
+            "time_limit": 60,
+            "cpus": 2,
+            "BestObjStop": None,
+            "license": "local",
+            "gurobi_logs": "",
+            "enforce_tree_complexity": True,
+        }
+
     def __init__(
         self,
         segment,

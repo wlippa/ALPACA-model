@@ -4,7 +4,7 @@ import argparse
 def get_parser():
     parser = argparse.ArgumentParser(description="Optional / development arguments.")
     parser.add_argument(
-        "--use_binary_search",
+        "--binary_search",
         type=int,
         default=False,
         help="Whether to use binary search or not. Binary search is faster but may not find optimal solution.",
@@ -33,10 +33,10 @@ def get_config(remaining_args):
     args = parser.parse_args(remaining_args)
     # make config dictionary
     model_config = {
-        "add_state_change_count_constraints_flag": args.add_state_change_count_constraints_flag,
-        "add_path_variability_penalty_constraints_flag": args.add_path_variability_penalty_constraints_flag,
-        "exclusive_amp_del": args.exclusive_amp_del,
-        "use_binary_search": args.use_binary_search,
+    "add_state_change_count_constraints_flag": args.add_state_change_count_constraints_flag,
+    "add_path_variability_penalty_constraints_flag": args.add_path_variability_penalty_constraints_flag,
+    "exclusive_amp_del": args.exclusive_amp_del,
+    "binary_search": args.binary_search,
     }
     preprocessing_config = {
         "rsc": args.rsc,

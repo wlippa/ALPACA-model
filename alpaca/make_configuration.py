@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+from alpaca.ALPACA_model_class import Model as ALPACA_Model
 
 """
 ALPACA can operate in two modes: 'tumour' and 'segment'.
@@ -68,13 +69,13 @@ def get_parser():
         help="Directory where gurobi logs should be stored. If no value is speficied, logs will not be saved.",
     )
     parser.add_argument(
-        "--use_two_objectives",
+        "--two_objectives",
         type=int,
         default=1,
         help="Whether to use two objectives or not. First objective minimises number of segments outside CI, second objective minimises error.",
     )
     parser.add_argument(
-        "--use_minimise_events_to_diploid",
+        "--minimise_events_to_diploid",
         type=int,
         default=1,
         help="Whether to minimize events to diploid or not. If true, ALPACA will introduce diploid pseudo-clone at the root of the tree.",
@@ -165,21 +166,39 @@ def make_config(args_in):
     parser = get_parser()
     args, remaining_args = parser.parse_known_args(args_in)
     validate_args(args)
+    # If there are any unknown args left over, fail fast (unless running in dev
+    # mode where remaining args are forwarded to dev.parse_optional_args()).
+    if remaining_args:
+        if ENV != "dev":
+            print(
+                "Error: Unknown or unsupported arguments passed to ALPACA:\n  "
+                + " ".join(remaining_args),
+                file=sys.stderr,
+            )
+            sys.exit(1)
     # make config dictionary
-    model_config = {
-        "use_two_objectives": args.use_two_objectives,
-        "use_minimise_events_to_diploid": args.use_minimise_events_to_diploid,
-        "prevent_increase_from_zero_flag": args.prevent_increase_from_zero_flag,
-        "add_event_count_constraints_flag": args.add_event_count_constraints_flag,
-        "add_allow_only_one_non_directional_event_flag": args.add_allow_only_one_non_directional_event_flag,
-        "homozygous_deletion_threshold": args.homozygous_deletion_threshold,
-        "homo_del_size_limit": args.homo_del_size_limit,
-        "time_limit": args.time_limit,
-        "cpus": args.cpus,
-        "gurobi_logs": args.gurobi_logs,
-        "missing_clones_inherit_from_children_flag": args.missing_clones_inherit_from_children_flag,
-        "d_zero": args.d_zero,
-    }
+    # Start from Model defaults to avoid duplicating default values across files
+    model_config = ALPACA_Model.default_model_config()
+
+    # Override defaults with CLI args and map CLI arg names to Model property names
+    model_config.update(
+        {
+            "two_objectives": bool(args.two_objectives),
+            "minimise_events_to_diploid": bool(args.minimise_events_to_diploid),
+            "prevent_increase_from_zero_flag": bool(args.prevent_increase_from_zero_flag),
+            "add_event_count_constraints_flag": bool(args.add_event_count_constraints_flag),
+            "add_allow_only_one_non_directional_event_flag": bool(
+                args.add_allow_only_one_non_directional_event_flag
+            ),
+            "homozygous_deletion_threshold": args.homozygous_deletion_threshold,
+            "homo_del_size_limit": args.homo_del_size_limit,
+            "time_limit": args.time_limit,
+            "cpus": args.cpus,
+            "gurobi_logs": args.gurobi_logs,
+            "missing_clones_inherit_from_children_flag": args.missing_clones_inherit_from_children_flag,
+            "d_zero": args.d_zero,
+        }
+    )
     preprocessing_config = {
         "mode": args.mode,
         "overwrite_output": args.overwrite_output,
