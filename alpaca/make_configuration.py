@@ -168,14 +168,14 @@ def make_config(args_in):
     validate_args(args)
     # If there are any unknown args left over, fail fast (unless running in dev
     # mode where remaining args are forwarded to dev.parse_optional_args()).
-    if remaining_args:
-        if ENV != "dev":
-            print(
-                "Error: Unknown or unsupported arguments passed to ALPACA:\n  "
-                + " ".join(remaining_args),
-                file=sys.stderr,
-            )
-            sys.exit(1)
+    # also, first argument is a command, so skip that:
+    if remaining_args[1:] and ENV not in ("dev", "development"):
+        print(
+            "Error: Unknown or unsupported arguments passed to ALPACA:\n  "
+            + " ".join(remaining_args),
+            file=sys.stderr,
+        )
+        sys.exit(1)
     # make config dictionary
     # Start from Model defaults to avoid duplicating default values across files
     model_config = ALPACA_Model.default_model_config()
