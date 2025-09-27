@@ -650,26 +650,11 @@ class SegmentSolution:
             return None
 
     def set_directories(self):
-        """Try to determine if the script is run from nextflow or not. In Nextflow, input files (copy number per segment),
-        are expected to be in working directory. Otherwise, segments are expected to be in tumour_dir/segments.
-        """
 
-        def is_running_in_nextflow():
-            """
-            Checks if the script is running within a Nextflow process.
-
-            Returns:
-                bool: True if running in Nextflow, False otherwise.
-            """
-            return (
-                "NXF_PID" in os.environ
-                or "NXF_TEMP_DIR" in os.environ
-                or "NXF_VER" in os.environ
-            )
-
-        self.tumour_dir = f"{self.input_data_directory}/{self.tumour_id}"
-        if is_running_in_nextflow():
-            self.segments_dir = "."
+        is_running_in_nextflow = self.config["preprocessing_config"].get('mode') == 'segment'
+        self.tumour_dir = self.config["preprocessing_config"].get('input_tumour_directory')
+        if is_running_in_nextflow:
+            self.segments_dir = self.input_data_directory
         else:
             self.segments_dir = f"{self.tumour_dir}/segments"
 
