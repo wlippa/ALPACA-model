@@ -50,6 +50,12 @@ def get_parser():
             If 'segment' expect array of files to segment files (can be from different tumours) and create separate outputs for each segment.",
     )
     parser.add_argument(
+        "--nextflow_config",
+        type=str,
+        default="",
+        help="Path to a Nextflow config file to run segment-level distributed workers (only used when --mode segment).",
+    )
+    parser.add_argument(
         "--overwrite_output",
         type=int,
         default=1,
@@ -211,8 +217,9 @@ def make_config(args_in):
     if args.mode == "tumour":
         preprocessing_config["input_tumour_directory"] = args.input_tumour_directory
     else:
-        preprocessing_config["input_files"] = (args.input_files[0].strip().split(" "),)
+        preprocessing_config["input_files"] = args.input_files
         preprocessing_config["input_data_directory"] = args.input_data_directory
+        preprocessing_config["input_tumour_directory"] = args.input_tumour_directory
     if ENV == "dev":
         print("Starting ALPACA in development mode")
         from dev.parse_optional_args import get_config
