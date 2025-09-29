@@ -141,10 +141,23 @@ def get_parser():
     )
     parser.add_argument("--debug", default=False, action="store_true")
     parser.add_argument(
+        "--debug_solution_file",
+        type=str,
+        default="",
+        help="Path to CSV with debug solution values (columns: tumour_id,segment,clone,pred_CN_A,pred_CN_B)",
+    )
+    parser.add_argument(
         "--output_all_solutions",
         default=False,
         action="store_true",
         help="If set, write all model solutions (not only the optimal) into a subdirectory of the output directory",
+    )
+
+    parser.add_argument(
+        "--complexity",
+        type=int,
+        default=None,
+        help="If provided together with --debug_solution_file, run a single iteration with this complexity",
     )
 
     return parser
@@ -170,7 +183,14 @@ def validate_args(args):
 def make_config(args_in):
     ENV = os.environ.get("APP_ENV", "prod").lower()
     parser = get_parser()
-    args, remaining_args = parser.parse_known_args(args_in)
+    # If called with sys.argv[1:] the first element may be a sub-command
+    # (e.g., 'run'). Strip a leading command token if present so argparse
+    # receives only option/flag arguments.
+    if args_in and not args_in[0].startswith("-"):
+        args_list = args_in[1:]
+    else:
+        args_list = args_in
+    args, remaining_args = parser.parse_known_args(args_list)
     validate_args(args)
     # If there are any unknown args left over, fail fast (unless running in dev
     # mode where remaining args are forwarded to dev.parse_optional_args()).
@@ -203,6 +223,9 @@ def make_config(args_in):
             "gurobi_logs": args.gurobi_logs,
             "missing_clones_inherit_from_children_flag": args.missing_clones_inherit_from_children_flag,
             "d_zero": args.d_zero,
+            "debug": args.debug,
+            "debug_solution_file": args.debug_solution_file,
+            "complexity": args.complexity,
         }
     )
     preprocessing_config = {

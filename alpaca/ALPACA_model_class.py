@@ -1,7 +1,11 @@
-import gurobipy as gp
+import sys
 import pandas as pd
 import os
-from gurobipy import GRB
+# Placeholders so the module can be imported in environments without gurobipy.
+# The real objects are assigned during Model.__init__ via lazy import.
+gp = None
+GRB = None
+
 from alpaca.utils import (
     find_path_edges,
     get_tree_edges,
@@ -44,6 +48,9 @@ class Model:
             "license": "local",
             "gurobi_logs": "",
             "enforce_tree_complexity": True,
+            "debug": False,
+            "debug_solution_file": "",
+            "complexity": None,
         }
 
     def __init__(
@@ -55,6 +62,19 @@ class Model:
         clone_proportions,
         **kwargs,
     ):
+        # Lazy-import gurobipy to avoid requiring Gurobi at module import time.
+        # This lets other parts of the code (e.g., configuration parsing,
+        # SegmentSolution) be imported in environments without gurobipy.
+        try:
+            import gurobipy as gp
+            from gurobipy import GRB
+            # expose to module globals so existing code can continue to use gp and GRB
+            globals()["gp"] = gp
+            globals()["GRB"] = GRB
+        except Exception as e:
+            raise ImportError(
+                "gurobipy is required to instantiate Model. Install Gurobi and the gurobipy package or run in an environment with Gurobi available."
+            ) from e
         # default parameters:
         self.homozygous_deletion_threshold = 1
         self.homo_del_size_limit = 5 * 10**7
@@ -158,14 +178,38 @@ class Model:
             self.model = gp.Model("ALPACA", env=env)
             print(f'Using remote license: {options["LICENSEID"]}')
         else:
-            print(f"Using local license")
+            print("Using local license")
             self.model = gp.Model("ALPACA")
         # set logging:
-        if self.gurobi_logs == "":
-            self.model.setParam("OutputFlag", 0)
-        else:
+        gurobi_val = getattr(self, "gurobi_logs", "")
+        if not gurobi_val and hasattr(self, "output_directory") and self.output_directory:
+            # allow callers to forward preprocessing output_directory into model_config
+            gurobi_val = self.output_directory
+
+        if gurobi_val:
+            gl = os.path.expanduser(gurobi_val)
+            # Decide whether the provided path is intended as a directory or a file.
+            # Treat as directory if it ends with a path separator, already exists as a directory,
+            # or has no file extension (common when users pass a directory path without trailing slash).
+            _, ext = os.path.splitext(gl)
+            looks_like_dir = gl.endswith(os.sep) or os.path.isdir(gl) or (ext == "")
+            if looks_like_dir:
+                out_dir = gl
+                # if user gave a path like 'some/dir' that doesn't exist, create it
+                os.makedirs(out_dir, exist_ok=True)
+                gl = os.path.join(out_dir, f"gurobi_log_{self.tumour_id}_{self.segment}.txt")
+            else:
+                # treat as file path; ensure parent directory exists
+                parent = os.path.dirname(gl)
+                if parent:
+                    os.makedirs(parent, exist_ok=True)
+            # store absolute path back
+            self.gurobi_logs = os.path.abspath(gl)
+            # enable logging into that file
             self.model.setParam("LogFile", self.gurobi_logs)
             self.model.setParam("LogToConsole", 0)
+        else:
+            self.model.setParam("OutputFlag", 0)
         self.model.params.TimeLimit = self.time_limit
         self.model.params.Threads = self.cpus * 2
         if self.BestObjStop:
@@ -184,6 +228,48 @@ class Model:
             self.Yhat[allele] = self.model.addVars(
                 self.sample_names, name=f"Yhat{allele}", lb=0
             )
+        # If debug mode and a debug_solution_file is provided, load CSV and fix X variables
+        # to values specified for this tumour and segment. This helps reproduce or force
+        # a particular ILP solution for debugging.
+        try:
+            if getattr(self, "debug", False) and getattr(self, "debug_solution_file", ""):
+                if getattr(self, "complexity", ""):
+                    self.allowed_tree_complexity = self.complexity
+                debug_path = os.path.expanduser(self.debug_solution_file)
+                if os.path.exists(debug_path):
+                    df_dbg = pd.read_csv(debug_path)
+                    # Expect columns: tumour_id, segment, clone, pred_CN_A, pred_CN_B
+                    df_match = df_dbg[
+                        (df_dbg["tumour_id"] == self.tumour_id)
+                        & (df_dbg["segment"] == self.segment)
+                    ]
+                    if df_match.empty:
+                        print(
+                            f"Debug solution file provided but no rows match tumour={self.tumour_id}, segment={self.segment}"
+                        )
+                    else:
+                        # Build lookup for each allele and clone
+                        for allele in ["A", "B"]:
+                            col = f"pred_CN_{allele}"
+                            for clone in self.clone_names:
+                                rows = df_match[df_match["clone"] == clone]
+                                if not rows.empty:
+                                    # take the first matching row
+                                    val = int(rows.iloc[0][col])
+                                    # Add equality constraint: X[allele][clone] == val
+                                    self.model.addConstr(
+                                        self.X[allele][clone] == val,
+                                        name=f"debug_fix_X_{allele}_{clone}",
+                                    )
+                                else:
+                                    # clone not present in debug CSV for this segment
+                                    print(
+                                        f"Debug CSV missing clone {clone} for tumour={self.tumour_id}, segment={self.segment}; skipping fix for this clone"
+                                    )
+                else:
+                    print(f"Debug solution file not found: {debug_path}")
+        except Exception as e:
+            print(f"Error applying debug solution constraints: {e}")
         # Introduce diploid pseudo-clone:
         if self.minimise_events_to_diploid:
             self.add_diploid_pseudo_clone()
@@ -933,7 +1019,51 @@ class Model:
                     name=f"clonal_{allele}",
                 )
 
+    def output_for_infeasible_models(self):
+        try:
+            # compute irreducible inconsistent subsystem
+            self.model.computeIIS()
+            report_dir = os.path.dirname(self.gurobi_logs) if self.gurobi_logs else os.getcwd()
+            os.makedirs(report_dir, exist_ok=True)
+            report_path = os.path.join(report_dir, f"infeasibility_report_{self.tumour_id}_{self.segment}.txt")
+            with open(report_path, "w") as fh:
+                fh.write(f"Gurobi model status: {self.model.Status}\n")
+                fh.write("IIS report generated by gurobipy.computeIIS()\n\n")
+                fh.write("=== Constraints in IIS ===\n")
+                for constr in self.model.getConstrs():
+                    if constr.IISConstr:
+                        fh.write(f"{constr.ConstrName}\n")
+                fh.write("\n=== Variables in IIS ===\n")
+                for var in self.model.getVars():
+                    if var.IISLB or var.IISUB:
+                        fh.write(f"{var.VarName} (IISLB={var.IISLB}, IISUB={var.IISUB})\n")
+                try:
+                    fh.write("\n=== SOS in IIS (members) ===\n")
+                    for sos in self.model.getSOSs():
+                        members = [v.VarName for v in sos.getVars()]
+                        fh.write(f"SOS type={sos.SOSType} members={members}\n")
+                except Exception:
+                    pass
+            print(f"Wrote infeasibility report: {report_path}")
+            print(f"Model status: {self.model.Status}, Exiting.")
+            # exit the program after writing the report
+            sys.exit(1)
+        except Exception as e:
+            print(f"Failed to compute IIS or write report: {e}")
+    
     def get_output(self):
+        # If model is infeasible and debug mode is on, produce IIS diagnostics alongside gurobi log
+        try:
+            status = self.model.Status
+        except Exception:
+            status = None
+
+        if getattr(self, "debug", False) and status == GRB.INFEASIBLE:
+            self.output_for_infeasible_models()
+        # if model was run in debug mode with a supplied solution, exit here
+        if getattr(self, "debug", False) and getattr(self, "debug_solution_file", False):
+            sys.exit('Model run with supplied solution, exiting. See Gurobi logs for error score and other info.')
+
         A = pd.DataFrame(
             {
                 c: [int(round(cn_val.X))]

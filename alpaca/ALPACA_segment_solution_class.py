@@ -435,26 +435,47 @@ class SegmentSolution:
             * math.ceil(self.input_table[["cpnA", "cpnB"]].max().max()),
         )
         objective_function_threshold = 0.1  # iterations will stop if D score does not improve by more than this value in 3 consecutive iterations
-        # run diploid model:
-        self.run_model(allowed_complexity=0)
-        # don't iterate if solution is likely to be diploid:
-        if self.metrics["D_scores"][0] > objective_function_threshold:
-            complexity_range = range(1, self.maximum_complexity)
-            for c in complexity_range:
-                print(f"**Iterating with complexity: {c}")
-                self.run_model(allowed_complexity=c)
-                stop_conditions = self.stop_conditions_check(
-                    objective_function_threshold
-                )
-                if stop_conditions:
-                    # check if elbow can be found
-                    self.find_elbow()
-                    elbow_findable = self.elbow["s_min"] < 1000
-                    if elbow_findable:
-                        print(
-                            f"** Stopping iterations at complexity {c} due to lack of improvement in D score"
-                        )
-                        break
+        
+        # If user provided both a debug_solution_file and an explicit complexity,
+        # run a single iteration with that complexity and emit raw Gurobi logs
+        override_complexity = None
+        try:
+            override_complexity = self.config["model_config"].get("complexity")
+        except Exception:
+            override_complexity = None
+        if self.config["model_config"].get("debug_solution_file") and override_complexity is not None:
+            print(f"Running single iteration with user-specified complexity: {override_complexity}")
+            # ensure gurobi logs are written to a file in the output directory
+            out_dir = self.config["preprocessing_config"].get("output_directory", ".")
+            out_dir = os.path.expanduser(out_dir)
+            os.makedirs(out_dir, exist_ok=True)
+            gurobi_log_path = os.path.join(out_dir, f"gurobi_log_{self.tumour_id}_{self.segment}.txt")
+            # temporarily set model_config gurobi_logs so Model will write logs
+            self.config["model_config"]["gurobi_logs"] = gurobi_log_path
+            # run diploid and then the specified complexity only
+            print(f"**Single iteration with complexity: {override_complexity}")
+            self.run_model(allowed_complexity=override_complexity)
+        else:
+            # run diploid model:
+            self.run_model(allowed_complexity=0)
+            # don't iterate if solution is likely to be diploid:
+            if self.metrics["D_scores"][0] > objective_function_threshold:
+                complexity_range = range(1, self.maximum_complexity)
+                for c in complexity_range:
+                    print(f"**Iterating with complexity: {c}")
+                    self.run_model(allowed_complexity=c)
+                    stop_conditions = self.stop_conditions_check(
+                        objective_function_threshold
+                    )
+                    if stop_conditions:
+                        # check if elbow can be found
+                        self.find_elbow()
+                        elbow_findable = self.elbow["s_min"] < 1000
+                        if elbow_findable:
+                            print(
+                                f"** Stopping iterations at complexity {c} due to lack of improvement in D score"
+                            )
+                            break
         self.solutions_combined = pd.concat(self.metrics["solutions"])
 
     def find_elbow(self):
