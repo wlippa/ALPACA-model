@@ -75,10 +75,10 @@ def get_parser():
         help="Directory where gurobi logs should be stored. If no value is speficied, logs will not be saved.",
     )
     parser.add_argument(
-        "--two_objectives",
-        type=int,
-        default=1,
-        help="Whether to use two objectives or not. First objective minimises number of segments outside CI, second objective minimises error.",
+        "--objectives",
+        type=str,
+        default="DCI",
+        help="Which objectives to include: 'D' (distance only), 'CI' (confidence-interval violations only), or 'DCI' (both, default).",
     )
     parser.add_argument(
         "--minimise_events_to_diploid",
@@ -209,7 +209,7 @@ def make_config(args_in):
     # Override defaults with CLI args and map CLI arg names to Model property names
     model_config.update(
         {
-            "two_objectives": bool(args.two_objectives),
+            "objectives": args.objectives,
             "minimise_events_to_diploid": bool(args.minimise_events_to_diploid),
             "prevent_increase_from_zero_flag": bool(args.prevent_increase_from_zero_flag),
             "add_event_count_constraints_flag": bool(args.add_event_count_constraints_flag),

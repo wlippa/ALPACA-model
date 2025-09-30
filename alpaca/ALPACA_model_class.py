@@ -39,7 +39,7 @@ class Model:
             "allowed_tree_complexity": 1000,
             "minimise_events_to_diploid": True,
             "exclusive_amp_del": True,
-            "two_objectives": True,
+            "objectives": "DCI",
             "restrict_heterogeneity_flag": False,
             "restrict_to_clonal_only_flag": False,
             "time_limit": 60,
@@ -90,7 +90,6 @@ class Model:
         self.allowed_tree_complexity = 1000
         self.minimise_events_to_diploid = True
         self.exclusive_amp_del = True
-        self.two_objectives = True
         self.restrict_heterogeneity_flag = False
         self.restrict_to_clonal_only_flag = False
         self.time_limit = 60
@@ -99,9 +98,23 @@ class Model:
         self.license = "local"
         self.gurobi_logs = ""
         self.enforce_tree_complexity = True
-
+            
+        # default for objectives (string): 'D', 'CI', or 'DCI'
+        self.objectives = "DCI"
+        # convenience booleans (will be normalized after kwargs override)
+        self.add_D_objective = True
+        self.add_CI_objective = True
+        
         # override defaults:
         self.__dict__.update(kwargs)
+        # normalize objectives and set booleans
+        obj = getattr(self, "objectives", None)
+        # ensure uppercase
+        obj = str(obj).upper()
+        self.objectives = obj
+        self.add_D_objective = "D" in obj
+        self.add_CI_objective = "CI" in obj
+        
         # ::::: ILP variables:
 
         # copy number variables:
@@ -346,13 +359,24 @@ class Model:
 
         self.D = gp.quicksum((gp.quicksum(self.d[allele]) for allele in ["A", "B"]))
 
-        # noinspection PyArgumentList
-        self.model.setObjectiveN(
-            self.Z, index=0, priority=1
-        )  # larger values indicate higher priorities
-        if self.two_objectives:
-            # noinspection PyArgumentList
-            self.model.setObjectiveN(self.D, index=1, priority=0)
+        self.set_objectives()
+
+    def set_objectives(self):
+        """Register objectives on the gurobi model based on the configured flags.
+
+        Also populate `self.objectives_set` with tokens 'CI' and/or 'D' for testing.
+        """
+        self.objectives_set = []
+        # Add CI objective if requested
+        if getattr(self, "add_CI_objective", False):
+            self.model.setObjectiveN(self.Z, index=0, priority=1)
+            self.objectives_set.append("CI")
+        # Add D objective if requested
+        if getattr(self, "add_D_objective", False):
+            idx = 1 if getattr(self, "add_CI_objective", False) else 0
+            prio = 0 if getattr(self, "add_CI_objective", False) else 1
+            self.model.setObjectiveN(self.D, index=idx, priority=prio)
+            self.objectives_set.append("D")
 
     def add_Yhat_constraints(self):
         for allele in ["A", "B"]:
@@ -1083,11 +1107,19 @@ class Model:
         solution = pd.merge(A, B, left_index=True, right_index=True)
         self.A = A
         self.B = B
-        self.total_score = self.Z.getValue() + self.D.getValue()
+        z_val = self.Z.getValue() if getattr(self, "add_CI_objective", False) else 0
+        d_val = self.D.getValue() if getattr(self, "add_D_objective", False) else 0
+        self.total_score = z_val + d_val
         self.complexity = int(self.total_tree_complexity.X)
         solution["complexity"] = self.complexity
-        solution["CI_score"] = int(self.Z.getValue())
-        solution["D_score"] = round(self.D.getValue(), 3)
+        solution["CI_score"] = (
+            int(self.Z.getValue()) if getattr(self, "add_CI_objective", False) else 0
+        )
+        solution["D_score"] = (
+            round(self.D.getValue(), 3)
+            if getattr(self, "add_D_objective", False)
+            else 0
+        )
         solution["variability_penalty_count"] = int(
             self.total_path_variability_penalty_count.X
         )
