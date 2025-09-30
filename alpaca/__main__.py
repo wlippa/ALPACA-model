@@ -91,6 +91,21 @@ def run_alpaca():
     if debug:
         logger.setLevel("DEBUG")
         logger.info("Debug mode is ON")
+        # to enable testing model with a provided solution, check if the solution dataframe is provided.
+        # we expect only single segmnt there, so throw an error if there are more.
+        # then, modify 'input_files' to contain only this single segment file.
+        if config["preprocessing_config"].get("test_with_provided_solution") is not None:
+            import pandas as pd
+            provided_solution = pd.read_csv(
+                config["preprocessing_config"]["test_with_provided_solution"]
+            )
+            segments = provided_solution["segment"].unique()
+            if len(segments) > 1:
+                raise ValueError(
+                    "When using 'test_with_provided_solution', the provided solution file must contain only a single segment."
+                )
+            config["preprocessing_config"]["input_files"] = [x for x in config["preprocessing_config"]["input_files"] if segments[0] in os.path.basename(x)]
+            
     # determine running mode:
     # if 'tumour', expect single file with all the segments and output a single file
     # if 'segment' expect array of files to segment files (can be from different tumours) and create separate outputs for each segment
