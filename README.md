@@ -413,3 +413,23 @@ Controls whether ALPACA overwrites existing temporary files.
 Allowed values: 0 (do not overwrite), 1 (overwrite, default).
 In the default 'tumour' mode, ALPACA iterates sequentially over each segment, saving temporary .csv tables with solutions for each. It then concatenates all segment solutions into one final output file. On systems with time constraints, if ALPACA isn't allocated enough time, the run might be incomplete, resulting in only some segment solutions being present, but not the final file. In such situations, if the user restarts ALPACA, it will begin from scratch and overwrite all previously created files. To reuse these files, run ALPACA with the --overwrite_output 0 option. The default setting for this option is --overwrite_output 1 to prevent unintended reuse of temporary files.
 
+
+```bash
+--min_ci <float>
+```
+
+Minimum confidence-interval span.
+
+If provided, ALPACA will ensure that all per-sample, per-allele confidence intervals (the columns `lower_CI_A`, `upper_CI_A`, `lower_CI_B`, `upper_CI_B` in `ci_table.csv`) have at least the specified span. Any interval that is tighter than `min_ci` will be expanded so that `upper_CI = lower_CI + min_ci` (while keeping `lower_CI >= 0`).
+
+When `--min_ci` is used, ALPACA also writes a per-segment JSON report recording which samples/alleles had their CI expanded; the report files are written into the output directory under `segment_reports/` and are named `segment_report_<tumour_id>_<segment>.json` so downstream scripts or dashboards can consume the adjustments programmatically.
+
+Example:
+
+```bash
+alpaca run --input_tumour_directory examples/example_cohort/input/LTX0000-Tumour1 \
+           --output_directory examples/example_cohort/output/LTX0000-Tumour1 \
+           --min_ci 0.05
+```
+
+This will enforce a minimum CI span of 0.05 for all allele-specific CI values and produce per-segment reports documenting any changes.
