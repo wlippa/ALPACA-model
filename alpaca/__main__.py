@@ -69,6 +69,7 @@ def run_alpaca():
         set_run_mode,
         create_logger,
         save_dataframe_to_csv,
+        process_ci_reports
     )
     from alpaca.make_configuration import make_config
     from alpaca.analysis import get_cn_change_to_ancestor
@@ -162,6 +163,8 @@ def run_alpaca():
                 output_dir=SS.config["preprocessing_config"]["output_directory"],
                 output_filename="cn_change_to_ancestor.csv",
             )
+            # parse and combine reports:
+            process_ci_reports(SS.config["preprocessing_config"]["output_directory"], delete=True, outpath=SS.config["preprocessing_config"]["output_directory"] + "/ci_modified_report.csv")
             logger.info(
                 f"""Analysis completed successfully. Output saved to: {SS.config["preprocessing_config"]["output_directory"]}"""
             )

@@ -139,6 +139,12 @@ def get_parser():
         type=str,
         help="Name of file containing confidence intervals for SNP copynumbers",
     )
+    parser.add_argument(
+        "--min_ci",
+        type=float,
+        default=0.0,
+        help="Minimum allowed confidence interval span for each allele (float). CI spans tighter than this will be expanded.",
+    )
     parser.add_argument("--debug", default=False, action="store_true")
     parser.add_argument(
         "--debug_solution_file",
@@ -236,6 +242,7 @@ def make_config(args_in):
         "output_all_solutions": args.output_all_solutions,
         "env": ENV,
         "output_directory": args.output_directory,
+        "min_ci": args.min_ci,
     }
     if args.mode == "tumour":
         preprocessing_config["input_tumour_directory"] = args.input_tumour_directory
