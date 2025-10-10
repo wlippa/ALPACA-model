@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import pandas as pd
+import json
 import numpy as np
 import math
 import kneed
@@ -158,12 +159,58 @@ def calculate_CI(df_seg_reg, CI):
     return df_seg_reg
 
 
-def get_ci_table(input_table, tumour_dir, segment, ci_table_name="", CI=0.5):
+def get_ci_table(input_table, tumour_dir, segment, ci_table_name="", CI=0.5, min_ci=None):
     # if confidence interval table name is provided, read it:
     if ci_table_name != "":
         ci_table = pd.read_csv(f"{tumour_dir}/{ci_table_name}")
+        ci_table = ci_table[ci_table.segment == segment]
+        # Enforce minimum CI span if caller provided min_ci via preprocessing_config
+        affected_samples = set()
+        affected_alleles = set()
+        affected_segment = segment
+        if min_ci is not None:
+            min_ci = float(min_ci)
+            required_cols = ["lower_CI_A", "upper_CI_A", "lower_CI_B", "upper_CI_B"]
+            if all([c in ci_table.columns for c in required_cols]):
+                for allele in ["A", "B"]:
+                    lower_col = f"lower_CI_{allele}"
+                    upper_col = f"upper_CI_{allele}"
+                    span_col = f"span_CI_{allele}"
+                    mid_col = f"mid_CI_{allele}"
+                    # compute original span
+                    ci_table[span_col] = ci_table[upper_col] - ci_table[lower_col]
+                    ci_table[mid_col] = (ci_table[upper_col] + ci_table[lower_col]) / 2
+                    # if span smaller than min_ci, expand symmetrically around midpoint
+                    too_small = ci_table[span_col] < min_ci
+                    if too_small.any():
+                        affected_rows = ci_table.loc[too_small]
+                        for s in affected_rows["sample"].unique():
+                            affected_samples.add(s)
+                        affected_alleles.add(allele)
+                        ci_table.loc[too_small, upper_col] = (
+                            ci_table.loc[too_small, mid_col] + min_ci / 2
+                        )
+                        ci_table.loc[too_small, lower_col] = (
+                            ci_table.loc[too_small, mid_col] - min_ci / 2
+                        )
+                    # ensure lower bound non-negative
+                    ci_table[lower_col] = ci_table[lower_col].apply(lambda x: max(x, 0))
+                
+                if affected_samples:
+                    report = {
+                        "tumour_id": os.path.basename(tumour_dir),
+                        "segment": affected_segment,
+                        "affected_samples": sorted(list(affected_samples)),
+                        "affected_alleles": sorted(list(affected_alleles)),
+                        "min_ci": float(min_ci),
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                else:
+                    report = {}
+                                
     # if table is not provided, but SNP table exists, calculate CI from SNP table:
     else:
+        report = {}
         # try to read SNP table, if not present, create artificial CI table:
         try:
             asas_table = pd.read_csv(f"{tumour_dir}/asas_table.csv")
@@ -203,7 +250,7 @@ def get_ci_table(input_table, tumour_dir, segment, ci_table_name="", CI=0.5):
             )
         ci_table["ci_value"] = CI
         ci_table = ci_table.reset_index(drop=True).sort_values("sample")
-    return ci_table
+    return ci_table, report
 
 
 def validate_inputs(
@@ -372,12 +419,13 @@ class SegmentSolution:
             remove_small_clones(self.cp_table, self.tree) if self.rsc else self.cp_table
         )
         # get confidence intervals for copy number values:
-        self.ci_table = get_ci_table(
+        self.ci_table, self.ci_report = get_ci_table(
             self.input_table,
             self.tumour_dir,
             self.segment,
             ci_table_name=self.ci_table_name,
             CI=self.ci,
+            min_ci=getattr(self, 'min_ci', None),
         )
         # check if inputs are in the expected format and contain all required columns:
         validate_inputs(
@@ -781,6 +829,15 @@ class SegmentSolution:
 
         # always write the optimal solution file
         self.optimal_solution.to_csv(output_path, index=False)
+        # save reports if available:
+        # ci_report:
+        if self.ci_report:
+            ci_report_path = os.path.join(
+                output_dir,
+                f"{self.tumour_id}_{self.segment}_ci_report.json",
+            )
+            with open(ci_report_path, "w") as f:
+                json.dump(self.ci_report, f, indent=4)
         if os.path.exists(output_path):
             logger.info("Segment output created")
         else:

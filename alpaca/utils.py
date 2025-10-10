@@ -6,7 +6,9 @@ import importlib
 import logging
 from datetime import datetime
 from typing import Optional
-
+import glob
+import sys
+import csv
 
 def show_version():
     try:
@@ -227,3 +229,63 @@ def save_dataframe_to_csv(df: pd.DataFrame, output_dir: str, output_filename: st
     output_path = os.path.join(output_dir, output_filename)
     os.makedirs(os.path.dirname(output_dir), exist_ok=True)
     df.to_csv(output_path, index=False)
+
+
+def process_ci_reports(dirpath: str, delete: bool = False, outpath: Optional[str] = None) -> pd.DataFrame:
+    pattern = os.path.join(dirpath, "*_ci_report.json")
+    files = sorted(glob.glob(pattern))
+    if outpath is None:
+        outpath = os.path.join(dirpath, "ci_modified_report.csv")
+
+    header = [
+        "tumour_id",
+        "segment",
+        "affected_sample",
+        "affected_allele",
+        "min_ci",
+        "timestamp",
+        "source_file",
+    ]
+
+    # write header even if no files
+    with open(outpath, "w", newline="") as csvf:
+        writer = csv.writer(csvf)
+        writer.writerow(header)
+        for fp in files:
+            try:
+                with open(fp) as fh:
+                    data = json.load(fh)
+            except Exception as e:
+                print(f"Warning: failed to read {fp}: {e}", file=sys.stderr)
+                continue
+
+            tumour = data.get("tumour_id")
+            segment = data.get("segment")
+            min_ci = data.get("min_ci")
+            ts = data.get("timestamp")
+            affected_samples = data.get("affected_samples") or []
+            affected_alleles = data.get("affected_alleles") or []
+
+            # produce a row per sample x allele combination
+            if not affected_samples and not affected_alleles:
+                writer.writerow(
+                    [tumour, segment, "", "", min_ci, ts, os.path.basename(fp)]
+                )
+                continue
+
+            for s in affected_samples:
+                if affected_alleles:
+                    for a in affected_alleles:
+                        writer.writerow(
+                            [tumour, segment, s, a, min_ci, ts, os.path.basename(fp)]
+                        )
+                else:
+                    writer.writerow(
+                        [tumour, segment, s, "", min_ci, ts, os.path.basename(fp)]
+                    )
+
+            if delete:
+                try:
+                    os.remove(fp)
+                except Exception as e:
+                    print(f"Warning: failed to remove {fp}: {e}", file=sys.stderr)
