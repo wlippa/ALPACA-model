@@ -325,8 +325,8 @@ def validate_inputs(
             proportions_above_1_in_any_sample = (cpt.sum() > 1).any()
             if proportions_above_1_in_any_sample:
                 raise ValueError("Clone proportions sum to more than 1 in some samples")
-
-
+            
+            
 def calibrate_clone_proportions(cp: pd.DataFrame):
     for r in cp.select_dtypes(include=float).columns:
         cp[r] = cp[r] / cp[r].sum()
@@ -431,6 +431,7 @@ class SegmentSolution:
         validate_inputs(
             it=self.input_table, cpt=self.cp_table, cit=self.ci_table, t=self.tree
         )
+        self.get_monoclonal_samples_report()
         #
         print(datetime.now())
         print(f"Running: {input_file_name}")
@@ -718,8 +719,15 @@ class SegmentSolution:
         except Exception:
             return None
 
-    def set_directories(self):
+    def get_monoclonal_samples_report(self):
+        clones_per_sample = (self.cp_table > 0).sum()
+        monoclonal_samples = clones_per_sample[clones_per_sample == 1].index.values
+        monoclonal_samples_copynumbers = self.input_table[self.input_table['sample'].isin(monoclonal_samples)]
+        monoclonal_samples_copynumbers['distance_to_integer_A'] = abs(monoclonal_samples_copynumbers['cpnA'] - monoclonal_samples_copynumbers['cpnA'].round())
+        monoclonal_samples_copynumbers['distance_to_integer_B'] = abs(monoclonal_samples_copynumbers['cpnB'] - monoclonal_samples_copynumbers['cpnB'].round())
+        self.monoclonal_samples_report = monoclonal_samples_copynumbers
 
+    def set_directories(self):
         is_running_in_nextflow = self.config["preprocessing_config"].get('mode') == 'segment'
         self.tumour_dir = self.config["preprocessing_config"].get('input_tumour_directory')
         if is_running_in_nextflow:
@@ -838,6 +846,12 @@ class SegmentSolution:
             )
             with open(ci_report_path, "w") as f:
                 json.dump(self.ci_report, f, indent=4)
+        if not self.monoclonal_samples_report.empty:
+            mono_report_path = os.path.join(
+                output_dir,
+                f"{self.tumour_id}_{self.segment}_monoclonal_samples_report.csv",
+            )
+            self.monoclonal_samples_report.to_csv(mono_report_path, index=False)
         if os.path.exists(output_path):
             logger.info("Segment output created")
         else:
