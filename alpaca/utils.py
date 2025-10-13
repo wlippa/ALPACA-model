@@ -10,6 +10,7 @@ import glob
 import sys
 import csv
 
+
 def show_version():
     try:
         version = importlib.metadata.version("alpaca")
@@ -284,7 +285,7 @@ def process_ci_reports(dirpath: str, delete: bool = False, outpath: Optional[str
                         [tumour, segment, s, "", min_ci, ts, os.path.basename(fp)]
                     )
 
-            if delete:
+            if delete and bool(files):
                 try:
                     os.remove(fp)
                 except Exception as e:
@@ -296,7 +297,7 @@ def process_monoclonal_reports(dirpath: str, delete: bool = False, outpath: Opti
     files = sorted(glob.glob(pattern))
     if outpath is None:
         combined_df = os.path.join(dirpath, "monoclonal_samples_report.csv")
-    # each file is a csv with header, concatenate them:
+    # each file is a csv with header, concatenate them or make an empty dataframe
     if not files:
         combined_df = pd.DataFrame(columns=['tumour_id', 'sample', 'segment', 'cpnA', 'cpnB', 'distance_to_integer_A', 'distance_to_integer_B'])
     else:
@@ -311,7 +312,34 @@ def process_monoclonal_reports(dirpath: str, delete: bool = False, outpath: Opti
         if dfs:
             combined_df = pd.concat(dfs, ignore_index=True)
     combined_df.to_csv(outpath, index=False)
-    if delete:
+    if delete and bool(files):
+        try:
+            os.remove(fp)
+        except Exception as e:
+            print(f"Warning: failed to remove {fp}: {e}", file=sys.stderr)
+
+
+def process_elbow_increase_reports(dirpath: str, delete: bool = False, outpath: Optional[str] = None) -> pd.DataFrame:
+    pattern = os.path.join(dirpath, "*_elbow_increase_report.csv")
+    files = sorted(glob.glob(pattern))
+    if outpath is None:
+        combined_df = os.path.join(dirpath, "elbow_increase_report.csv")
+    # each file is a csv with header, concatenate them or make an empty dataframe
+    if not files:
+        combined_df = pd.DataFrame(columns=['complexity', 'D_score', 'CI_score', 'allowed_complexity', 'issue', 'tumour_id', 'segment'])
+    else:
+        dfs = []
+        for fp in files:
+            try:
+                df = pd.read_csv(fp)
+                dfs.append(df)
+            except Exception as e:
+                print(f"Warning: failed to read {fp}: {e}", file=sys.stderr)
+                continue
+        if dfs:
+            combined_df = pd.concat(dfs, ignore_index=True)
+    combined_df.to_csv(outpath, index=False)
+    if delete and bool(files):
         try:
             os.remove(fp)
         except Exception as e:
