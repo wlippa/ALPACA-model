@@ -484,7 +484,6 @@ class SegmentSolution:
             * math.ceil(self.input_table[["cpnA", "cpnB"]].max().max()),
         )
         objective_function_threshold = 0.1  # iterations will stop if D score does not improve by more than this value in 3 consecutive iterations
-        
         # If user provided both a debug_solution_file and an explicit complexity,
         # run a single iteration with that complexity and emit raw Gurobi logs
         override_complexity = None
@@ -538,6 +537,18 @@ class SegmentSolution:
             .sort_values("allowed_complexity")
             .reset_index(drop=True)
         )
+        # check if objective function increases at any point. If yes, it signifies and issue, as error values should never increase.
+        # this can happen if confidence intervals are very narrow and if both objectives are used for optimization. The model
+        # always trys to minimize CI score, and in some rare cases this can lead to an increase in D score. In such a scenario, it is
+        # recommended to use min_ci parameter to enforce a minimum confidence interval width.
+        d_score_increases = (np.diff(self.elbow_search_df.D_score) > 0).any()
+        if d_score_increases:
+            elbow_increase_report_df = self.elbow_search_df.copy()
+            elbow_increase_report_df["issue"] = ['']+['D_score_increase' if x > 0 else '' for x in np.diff(self.elbow_search_df.D_score)]
+            elbow_increase_report_df['tumour_id'] = self.tumour_id
+            elbow_increase_report_df['segment'] = self.segment
+            self.elbow_increase_report = elbow_increase_report_df
+            
         self.elbow_search_df_strictly_decreasing = ensure_elbow_strictly_decreasing(
             self.elbow_search_df.copy()
         )
@@ -852,6 +863,12 @@ class SegmentSolution:
                 f"{self.tumour_id}_{self.segment}_monoclonal_samples_report.csv",
             )
             self.monoclonal_samples_report.to_csv(mono_report_path, index=False)
+        if not self.elbow_increase_report.empty:
+            elbow_report_path = os.path.join(
+                output_dir,
+                f"{self.tumour_id}_{self.segment}_elbow_increase_report.csv",
+            )
+            self.elbow_increase_report.to_csv(elbow_report_path, index=False)
         if os.path.exists(output_path):
             logger.info("Segment output created")
         else:
