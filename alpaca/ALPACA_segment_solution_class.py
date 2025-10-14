@@ -542,13 +542,15 @@ class SegmentSolution:
         # always trys to minimize CI score, and in some rare cases this can lead to an increase in D score. In such a scenario, it is
         # recommended to use min_ci parameter to enforce a minimum confidence interval width.
         d_score_increases = (np.diff(self.elbow_search_df.D_score) > 0).any()
+        # mutate this later if condition met:
+        self.elbow_increase_report = pd.DataFrame()
         if d_score_increases:
             elbow_increase_report_df = self.elbow_search_df.copy()
             elbow_increase_report_df["issue"] = ['']+['D_score_increase' if x > 0 else '' for x in np.diff(self.elbow_search_df.D_score)]
             elbow_increase_report_df['tumour_id'] = self.tumour_id
             elbow_increase_report_df['segment'] = self.segment
             self.elbow_increase_report = elbow_increase_report_df
-            
+
         self.elbow_search_df_strictly_decreasing = ensure_elbow_strictly_decreasing(
             self.elbow_search_df.copy()
         )
