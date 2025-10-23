@@ -22,12 +22,14 @@ usage() {
     echo "  --refphase_rData         Path to refphase .RData file (required)"
     echo "  --CONIPHER_tree_object   Path to CONIPHER tree object .RDS file (required)"
     echo "  --CONIPHER_tree_index    Selected CONIPHER tree index (optional, default: 1)"
+    echo "  --heterozygous_SNPs_threshold  Optional int threshold passed to convert_refphase.py - default value is 5"
     echo "  --output_dir             Output directory (required)"
     echo "  --help                   Display this help message"
     exit 1
 }
 # default arguments
 CONIPHER_tree_index=1
+heterozygous_SNPs_threshold="5"
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
@@ -36,6 +38,7 @@ while [[ "$#" -gt 0 ]]; do
         --refphase_rData) refphase_rData="$2"; shift ;;
         --CONIPHER_tree_object) CONIPHER_tree_object="$2"; shift ;;
         --CONIPHER_tree_index) CONIPHER_tree_index="$2"; shift ;;
+        --heterozygous_SNPs_threshold) heterozygous_SNPs_threshold="$2"; shift ;;
         --output_dir) output_dir="$2"; shift ;;
         --help) usage ;;
         *) echo "Unknown parameter passed: $1"; usage ;;
@@ -101,6 +104,7 @@ python3 "${SCRIPT_DIR}/convert_refphase_output/convert_refphase.py" \
     --refphase_snps $refphase_snps_path \
     --refphase_purity_ploidy $refphase_purity_ploidy_path \
     --conipher_cp_table "${output_dir}/cp_table.csv" \
+    --heterozygous_SNPs_threshold "${heterozygous_SNPs_threshold}"
 
 if [ $? -ne 0 ]; then
     echo "Python convert_refphase.py failed" >&2

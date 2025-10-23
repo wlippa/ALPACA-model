@@ -12,13 +12,15 @@ refphase_rData="${input_tumour_directory}/${tumour_id}-refphase-results.RData"
 CONIPHER_tree_object="${input_tumour_directory}/${tumour_id}.tree.RDS"
 conversion_output_dir="${input_tumour_directory}"
 CONIPHER_tree_index=1
+heterozygous_SNPs_threshold=5
+
 alpaca input-conversion \
  --tumour_id $tumour_id \
  --refphase_rData $refphase_rData \
  --CONIPHER_tree_object $CONIPHER_tree_object \
  --CONIPHER_tree_index $CONIPHER_tree_index \
- --output_dir $conversion_output_dir
-
+ --output_dir $conversion_output_dir \
+ --heterozygous_SNPs_threshold $heterozygous_SNPs_threshold
 # run alpaca:
 alpaca run \
     --input_tumour_directory "${input_tumour_directory}" \
