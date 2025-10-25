@@ -542,7 +542,7 @@ class SegmentSolution:
         # always trys to minimize CI score, and in some rare cases this can lead to an increase in D score. In such a scenario, it is
         # recommended to use min_ci parameter to enforce a minimum confidence interval width.
         d_score_increases = (np.diff(self.elbow_search_df.D_score) > 0).any()
-        # mutate this later if condition met:
+        # mutate this later if condition met
         self.elbow_increase_report = pd.DataFrame()
         if d_score_increases:
             elbow_increase_report_df = self.elbow_search_df.copy()
@@ -735,7 +735,7 @@ class SegmentSolution:
     def get_monoclonal_samples_report(self):
         clones_per_sample = (self.cp_table > 0).sum()
         monoclonal_samples = clones_per_sample[clones_per_sample == 1].index.values
-        monoclonal_samples_copynumbers = self.input_table[self.input_table['sample'].isin(monoclonal_samples)]
+        monoclonal_samples_copynumbers = self.input_table[self.input_table['sample'].isin(monoclonal_samples)].copy()
         monoclonal_samples_copynumbers['distance_to_integer_A'] = abs(monoclonal_samples_copynumbers['cpnA'] - monoclonal_samples_copynumbers['cpnA'].round())
         monoclonal_samples_copynumbers['distance_to_integer_B'] = abs(monoclonal_samples_copynumbers['cpnB'] - monoclonal_samples_copynumbers['cpnB'].round())
         self.monoclonal_samples_report = monoclonal_samples_copynumbers
