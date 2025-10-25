@@ -506,6 +506,7 @@ class SegmentSolution:
         else:
             # run diploid model:
             self.run_model(allowed_complexity=0)
+            self.elbow_increase_report = pd.DataFrame() 
             # don't iterate if solution is likely to be diploid:
             if self.metrics["D_scores"][0] > objective_function_threshold:
                 complexity_range = range(1, self.maximum_complexity)
@@ -542,8 +543,6 @@ class SegmentSolution:
         # always trys to minimize CI score, and in some rare cases this can lead to an increase in D score. In such a scenario, it is
         # recommended to use min_ci parameter to enforce a minimum confidence interval width.
         d_score_increases = (np.diff(self.elbow_search_df.D_score) > 0).any()
-        # mutate this later if condition met
-        self.elbow_increase_report = pd.DataFrame()
         if d_score_increases:
             elbow_increase_report_df = self.elbow_search_df.copy()
             elbow_increase_report_df["issue"] = ['']+['D_score_increase' if x > 0 else '' for x in np.diff(self.elbow_search_df.D_score)]
@@ -864,7 +863,7 @@ class SegmentSolution:
                 output_dir,
                 f"{self.tumour_id}_{self.segment}_monoclonal_samples_report.csv",
             )
-            self.monoclonal_samples_report.to_csv(mono_report_path, index=False)
+            self.monoclonal_samples_report.to_csv(mono_report_path, index=False)            
         if not self.elbow_increase_report.empty:
             elbow_report_path = os.path.join(
                 output_dir,
