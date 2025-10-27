@@ -105,6 +105,8 @@ refphase_segments["segment"] = (
 refphase_segments = refphase_segments.groupby("segment").filter(
     lambda x: (x["heterozygous_SNP_number"] >= args.heterozygous_SNPs_threshold).all()
 )
+# NB: if segments with 0 SNPs are kept, the copy number for such segments will not be recalculated with calculate_confidence_intervals
+# and confidence interval values will be set to equal the input copy number values.
 
 
 # calculate confidence intervals:
@@ -130,8 +132,20 @@ snps_with_segments_purity_ploidy = snps_with_segments.merge(
 confidence_intervals = (
     snps_with_segments_purity_ploidy.groupby(["segment", "sample"])
     .apply(calculate_confidence_intervals, ci_value=ci_value, n_bootstrap=n_bootstrap)
-    .reset_index()
+    .reset_index().drop(columns=["level_2"])
 )
+
+# add 0 SNP segments if such segments not filtereted out, i.e when args.heterozygous_SNPs_threshold=0
+if args.heterozygous_SNPs_threshold == 0:
+    # add 0 SNP segments if such segments not filtereted out, i.e when args.heterozygous_SNPs_threshold=0
+    zero_snp_segments = refphase_segments[refphase_segments.heterozygous_SNP_number == 0]
+    zero_snp_segments = zero_snp_segments[["segment", "sample", "cn_a", "cn_b"]]
+    zero_snp_segments['lower_CI_A'] = zero_snp_segments['cn_a']
+    zero_snp_segments['upper_CI_A'] = zero_snp_segments['cn_a']
+    zero_snp_segments['lower_CI_B'] = zero_snp_segments['cn_b']
+    zero_snp_segments['upper_CI_B'] = zero_snp_segments['cn_b']
+    zero_snp_segments.rename(columns={"cn_a": "cpnA", "cn_b": "cpnB"}, inplace=True)
+    confidence_intervals = pd.concat([confidence_intervals, zero_snp_segments], ignore_index=True)
 
 ci_table = confidence_intervals.merge(refphase_segments)[
     [
@@ -157,8 +171,16 @@ for allele in ["A", "B"]:
         ci_table[f"cpn{allele}"] >= ci_table[f"lower_CI_{allele}"]
     ), f"cpn{allele} >= lower_CI_{allele}"
     assert all(
-        ci_table[f"cpn{allele}"] < ci_table[f"upper_CI_{allele}"]
-    ), f"cpn{allele} < upper_CI_{allele}"
+        ci_table[f"cpn{allele}"] <= ci_table[f"upper_CI_{allele}"]
+    ), f"cpn{allele} <= upper_CI_{allele}"
+
+# ensure all input segments are present in output:
+input_segments = refphase_segments["segment"].unique()
+output_segments = ci_table["segment"].unique()
+missing_segments = set(input_segments) - set(output_segments)
+assert (
+    len(missing_segments) == 0
+), f"Some input segments are missing in the output: {missing_segments}"
 
 # keep only samples present in CONIPHER cp_table:
 ci_table = ci_table[ci_table["sample"].isin(conipher_samples)]
