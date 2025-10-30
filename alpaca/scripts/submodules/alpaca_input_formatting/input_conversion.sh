@@ -121,3 +121,25 @@ if [ $? -ne 0 ]; then
     echo "Python convert_refphase.py failed" >&2
     exit 1
 fi
+
+# Write a small conversion report summarising the arguments used and the run time
+report_path="${output_dir%/}/conversion_report.txt"
+cat > "$report_path" <<-REPORT
+Conversion report
+=================
+Date: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+Script: ${SCRIPT_DIR}/convert_refphase_output/convert_refphase.py
+
+Arguments and values:
+    tumour_id: ${tumour_id}
+    refphase_rData: ${refphase_rData}
+    CONIPHER_tree_object: ${CONIPHER_tree_object}
+    CONIPHER_tree_index: ${CONIPHER_tree_index}
+    heterozygous_SNPs_threshold: ${heterozygous_SNPs_threshold}
+    ci_value: ${ci_value}
+    n_bootstrap: ${n_bootstrap}
+    recalculate_not_updated_cns: ${recalculate_not_updated_cns}
+    output_dir: ${output_dir}
+
+REPORT
+echo "Wrote conversion report to $report_path"
