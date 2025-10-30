@@ -42,10 +42,21 @@ parser.add_argument(
     help="Minimum number of heterozygous SNPs to consider a segment. Segments with fewer heterozygous SNPs will be discarded.",
 )
 parser.add_argument(
-    "--ci_value", type=float, default=0.5, help="Confidence interval value."
+    "--ci_value", type=float, help="Confidence interval value."
 )
 parser.add_argument(
-    "--n_bootstrap", type=int, default=100, help="Number of bootstrap samples."
+    "--n_bootstrap", type=int, help="Number of bootstrap samples."
+)
+parser.add_argument(
+    "--recalculate_not_updated_cns", type=bool, default=False, 
+    help="Refphase updates copy-numbers for segments where allelic imbalance is detected. \
+        The remaining segments inherit the copy-number of their parent ASCAT segment. \
+        When calculating confidence intervals for these non-updated segments, two behaviours are possible. \
+        If set to True, we will recalculate confidence intervals and fractional copy-numbers for these segments using BAF and LOGr of the subset of SNPs\
+        assigned  to the Refphase segment in questions. Otherwise, we will first center the SNPs around the original ASCAT copy-numbers, and then calculate\
+        confidence intervals. The rationale for such behaviour is that in the second case, there is not enough evidence to divert from the null\
+        (i.e. ASCAT solution), but the uncertainty in the copy-number estimate should still be captured and should be lower compared to the entire\
+        parent ASCAT segment"
 )
 parser.add_argument(
     "--split_segments",
@@ -60,6 +71,7 @@ tumour_id = args.tumour_id
 output_dir = args.output_dir
 ci_value = args.ci_value
 n_bootstrap = args.n_bootstrap
+recalculate_not_updated_cns = args.recalculate_not_updated_cns
 split_segments = args.split_segments
 # create output directory:
 os.makedirs(output_dir, exist_ok=True)
@@ -127,14 +139,12 @@ snps_with_segments_purity_ploidy = snps_with_segments.merge(
     refphase_purity_ploidy, left_on="sample", right_on="sample_id", how="inner"
 )
 
-
 # estimate the confidence intervals:
 confidence_intervals = (
     snps_with_segments_purity_ploidy.groupby(["segment", "sample"])
-    .apply(calculate_confidence_intervals, ci_value=ci_value, n_bootstrap=n_bootstrap)
+    .apply(calculate_confidence_intervals, ci_value=ci_value, n_bootstrap=n_bootstrap, recalculate_not_updated_cns=recalculate_not_updated_cns)
     .reset_index().drop(columns=["level_2"])
 )
-
 # add 0 SNP segments if such segments not filtereted out, i.e when args.heterozygous_SNPs_threshold=0
 if args.heterozygous_SNPs_threshold == 0:
     # add 0 SNP segments if such segments not filtereted out, i.e when args.heterozygous_SNPs_threshold=0
