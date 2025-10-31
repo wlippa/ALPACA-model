@@ -19,6 +19,12 @@ def input_conversion():
         # check if all file in sys.argv exist:
         for i, arg in enumerate(sys.argv[1:], start=1):
             if "=" not in arg and ("/" in arg or "\\" in arg or "." in arg):
+                # check if argument is a number
+                try:
+                    float(arg)
+                    continue  # it's a number, skip existence check
+                except ValueError:
+                    pass  # not a number, proceed to check existence
                 exists = os.path.exists(arg)
                 print(
                     f"Argument {i} ({arg}): {'Exists' if exists else 'DOES NOT EXIST'}"
