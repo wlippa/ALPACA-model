@@ -27,7 +27,7 @@ def calculate_final_value_cn_tot(seg_sample_df, logr_shift=0, logr_scale=1):
     return final_value
 
 
-def calculate_confidence_intervals_logr(seg_sample_df, ci_value=0.95, n_bootstrap=1000):
+def calculate_confidence_intervals_logr(seg_sample_df, ci_value, n_bootstrap):
     cn_tot = seg_sample_df["cn_a"] + seg_sample_df["cn_b"]
     assert len(cn_tot.unique()) == 1
     cn_tot = cn_tot.unique()[0]
@@ -76,7 +76,7 @@ def calculate_cn(seg_sample_df, baf, logr_shift=0, logr_scale=1):
     return final_value
 
 
-def calculate_confidence_intervals(seg_sample_df, ci_value=0.95, n_bootstrap=1000):
+def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalculate_not_updated_cns):
     baf_a = seg_sample_df.query('phasing == "a"')["baf"].mean()
     baf_b = seg_sample_df.query('phasing == "b"')["baf"].mean()
     if math.isnan(baf_a) and math.isnan(baf_b):
@@ -88,6 +88,7 @@ def calculate_confidence_intervals(seg_sample_df, ci_value=0.95, n_bootstrap=100
     bafs = {"A": baf_a, "B": baf_b}
     cis = {"A": {}, "B": {}}
     cn_frac = {}
+    refphase_updated_cns = seg_sample_df.was_cn_updated.unique()[0]
     for allele in ["A", "B"]:
         cn_frac[allele] = max(0, calculate_cn(seg_sample_df, bafs[allele]))
         bootstrap_values = []
@@ -103,7 +104,13 @@ def calculate_confidence_intervals(seg_sample_df, ci_value=0.95, n_bootstrap=100
         lower_CI = max(lower_bound, 0)
         upper_CI = max(upper_bound, 0.001)
         cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}
-
+        if (not refphase_updated_cns) and (not recalculate_not_updated_cns):
+            half_ci_span = (upper_CI - lower_CI) / 2
+            ascat_cns = seg_sample_df[f'cn_{allele.lower()}'].unique()[0]
+            lower_CI = ascat_cns - half_ci_span
+            upper_CI = ascat_cns + half_ci_span
+            cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}
+            cn_frac[allele] = ascat_cns
     return pd.DataFrame(
         {
             "cpnA": cn_frac["A"],

@@ -270,6 +270,20 @@ alpaca input-conversion \
 
 Default value of this argument is 1.
 
+The following options for refphase conversion are available:
+ 
+You can pass these options to the `alpaca input-conversion` helper (they are forwarded to the internal conversion scripts). Options marked (required) must be supplied; others have sensible defaults.
+
+```bash
+--heterozygous_SNPs_threshold <int> # (optional, default=5) Minimum supporting het-SNPs per phased segment used by convert_refphase.py: segments with fewer SNPS will be discarded.
+--ci_value <float>                 # (optional, default=0.5) Confidence level for copy-numbers
+--n_bootstrap <int>                # (optional, default=100) Number of bootstrap iterations used to calculate confidence intervals
+--recalculate_not_updated_cns <0|1> # (optional, default=0) If 1, forces recalculation of copy-numbers for segments flagged as not-updated by refphase
+```
+
+Notes:
+- `--recalculate_not_updated_cns`. Refphase is using multiple samples to improve phasing. To do so, it first partitions genome of all samples (from the same tumour) into "consistent segments". After this step, each sample will have the same number of segments defined by the same breakpoints. This means, that in some sample, two segments in sequence might have the same copy-number, and yet be considered separate. Next, for each of the consistent segments, refphase attempts to perform phasing and updates the copy-numbers accordingly. This means that for "copy-number updated" segments the final copy-number will differ from the original copy numbers of the parent segment. This argument controls the fate of the other segmnets, i.e. the ones where phasing was not performed. We can either keep the original copy number (derived from all the SNPs on the parent segment), or update it using only the SNPs present on the consisent, non 'copy-number updated' segment.
+
 <!-- TOC --><a name="running-alpaca-1"></a>
 ### Running ALPACA
 

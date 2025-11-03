@@ -19,6 +19,12 @@ def input_conversion():
         # check if all file in sys.argv exist:
         for i, arg in enumerate(sys.argv[1:], start=1):
             if "=" not in arg and ("/" in arg or "\\" in arg or "." in arg):
+                # check if argument is a number
+                try:
+                    float(arg)
+                    continue  # it's a number, skip existence check
+                except ValueError:
+                    pass  # not a number, proceed to check existence
                 exists = os.path.exists(arg)
                 print(
                     f"Argument {i} ({arg}): {'Exists' if exists else 'DOES NOT EXIST'}"
@@ -37,17 +43,21 @@ def input_conversion():
         env["SUBMODULES_PATH"] = submodules_path
         cmd_args = sys.argv[1:]
         print(f"Command line arguments: {cmd_args}")
-        # Execute the shell script with all passed arguments
-        result = subprocess.run(
-            [script_path] + sys.argv[2:],
-            check=True,
-            text=True,
-            capture_output=True,
-            env=env,
-        )
-        print(f"Return code: {result.returncode}")
-        print(f"Output: {result.stdout}")
-        print(f"Stderr: {result.stderr}")
+        cmd = [script_path] + sys.argv[2:]
+        print(f"Running: {' '.join(cmd)}")
+        try:
+            result = subprocess.run(
+                cmd,
+                check=True,
+                text=True,
+                env=env,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+            )
+            print(f"Return code: {result.returncode}")
+        except subprocess.CalledProcessError as e:
+            print(f"Error executing input_conversion (return code {e.returncode}).\nCommand: {' '.join(cmd)}", file=sys.stderr)
+            return e.returncode
         print("")
         print("")
         print("---------------------------------------")
