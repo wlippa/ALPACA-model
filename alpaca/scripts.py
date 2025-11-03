@@ -58,7 +58,6 @@ def input_conversion():
         except subprocess.CalledProcessError as e:
             print(f"Error executing input_conversion (return code {e.returncode}).\nCommand: {' '.join(cmd)}", file=sys.stderr)
             return e.returncode
-        breakpoint()
         print("")
         print("")
         print("---------------------------------------")
