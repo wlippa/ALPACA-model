@@ -76,7 +76,7 @@ def calculate_cn(seg_sample_df, baf, logr_shift=0, logr_scale=1):
     return final_value
 
 
-def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalculate_not_updated_cns):
+def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalculate_not_updated_cns, recalculate_updated_cns):
     baf_a = seg_sample_df.query('phasing == "a"')["baf"].mean()
     baf_b = seg_sample_df.query('phasing == "b"')["baf"].mean()
     if math.isnan(baf_a) and math.isnan(baf_b):
@@ -90,7 +90,6 @@ def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalcu
     cn_frac = {}
     refphase_updated_cns = seg_sample_df.was_cn_updated.unique()[0]
     for allele in ["A", "B"]:
-        cn_frac[allele] = max(0, calculate_cn(seg_sample_df, bafs[allele]))
         bootstrap_values = []
         for i in range(n_bootstrap):
             bootstrap_sample_df = bootstrap_sample(seg_sample_df, i)
@@ -104,9 +103,23 @@ def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalcu
         lower_CI = max(lower_bound, 0)
         upper_CI = max(upper_bound, 0.001)
         cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}
+        # set fractional copy number as mean of the intervals:
+        if recalculate_updated_cns:  
+            # use this option if you want to recalculate the copy numbers based on SNPs. Despite using the same equations as                         
+            # refphase, the results might differnt slightly
+            cn_frac[allele] = (lower_CI + upper_CI) / 2
+            # alternatively, recalculate the copy number, but with few bootstraps it might fall outsie the cofidence intervals on some occasions:
+            # cn_frac[allele] = max(0, calculate_cn(seg_sample_df, bafs[allele]))
+        else:
+            half_ci_span = (upper_CI - lower_CI) / 2
+            refphase_cns = seg_sample_df[f'cn_{allele.lower()}'].unique()[0]  # value updated by refphase
+            lower_CI = refphase_cns - half_ci_span
+            upper_CI = refphase_cns + half_ci_span
+            cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}
+            cn_frac[allele] = refphase_cns
         if (not refphase_updated_cns) and (not recalculate_not_updated_cns):
             half_ci_span = (upper_CI - lower_CI) / 2
-            ascat_cns = seg_sample_df[f'cn_{allele.lower()}'].unique()[0]
+            ascat_cns = seg_sample_df[f'cn_{allele.lower()}'].unique()[0]  # original ascat value
             lower_CI = ascat_cns - half_ci_span
             upper_CI = ascat_cns + half_ci_span
             cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}

@@ -26,6 +26,7 @@ usage() {
     echo "  --ci_value               Confidence interval level (float, default: 0.5)"
     echo "  --n_bootstrap            Number of bootstrap iterations used by conversion steps while calculating confidence intervals (int, default: 100)"
     echo "  --recalculate_not_updated_cns  If set to 1, forces recalculation of copy numbers for segments that were not updated by Refphase (default: 0)"
+    echo "  --recalculate_updated_cns      If set to 1, forces recalculation of copy numbers for segments that were updated by Refphase (default: 0)"
     echo "  --output_dir             Output directory (required)"
     echo "  --help                   Display this help message"
     exit 1
@@ -36,6 +37,7 @@ heterozygous_SNPs_threshold=5
 ci_value=0.5
 n_bootstrap=100
 recalculate_not_updated_cns=0
+recalculate_updated_cns=0
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -47,6 +49,7 @@ while [[ "$#" -gt 0 ]]; do
         --ci_value) ci_value="$2"; shift ;;
         --n_bootstrap) n_bootstrap="$2"; shift ;;
         --recalculate_not_updated_cns) recalculate_not_updated_cns="$2"; shift ;;
+    --recalculate_updated_cns) recalculate_updated_cns="$2"; shift ;;
         --output_dir) output_dir="$2"; shift ;;
         --help) usage ;;
         *) echo "Unknown parameter passed: $1"; usage ;;
@@ -115,7 +118,8 @@ python3 "${SCRIPT_DIR}/convert_refphase_output/convert_refphase.py" \
     --heterozygous_SNPs_threshold "${heterozygous_SNPs_threshold}" \
     --ci_value "${ci_value}" \
     --n_bootstrap "${n_bootstrap}" \
-    --recalculate_not_updated_cns "${recalculate_not_updated_cns}"
+    --recalculate_not_updated_cns "${recalculate_not_updated_cns}" \
+    --recalculate_updated_cns "${recalculate_updated_cns}"
 
 if [ $? -ne 0 ]; then
     echo "Python convert_refphase.py failed" >&2
@@ -139,6 +143,7 @@ Arguments and values:
     ci_value: ${ci_value}
     n_bootstrap: ${n_bootstrap}
     recalculate_not_updated_cns: ${recalculate_not_updated_cns}
+    recalculate_updated_cns: ${recalculate_updated_cns}
     output_dir: ${output_dir}
 
 REPORT
