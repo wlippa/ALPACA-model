@@ -81,6 +81,7 @@ output_dir = args.output_dir
 ci_value = args.ci_value
 n_bootstrap = args.n_bootstrap
 recalculate_not_updated_cns = args.recalculate_not_updated_cns
+recalculate_updated_cns = args.recalculate_updated_cns
 split_segments = args.split_segments
 # create output directory:
 os.makedirs(output_dir, exist_ok=True)

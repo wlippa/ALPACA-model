@@ -20,8 +20,10 @@ alpaca input-conversion \
  --CONIPHER_tree_object $CONIPHER_tree_object \
  --CONIPHER_tree_index $CONIPHER_tree_index \
  --output_dir $conversion_output_dir \
- --heterozygous_SNPs_threshold $heterozygous_SNPs_threshold
-
+ --heterozygous_SNPs_threshold $heterozygous_SNPs_threshold \
+ --recalculate_updated_cns 0 \
+ --recalculate_not_updated_cns 0
+ 
 # run alpaca:
 alpaca run \
     --input_tumour_directory "${input_tumour_directory}" \

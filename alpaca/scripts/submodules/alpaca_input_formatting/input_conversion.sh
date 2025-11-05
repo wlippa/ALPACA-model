@@ -49,7 +49,7 @@ while [[ "$#" -gt 0 ]]; do
         --ci_value) ci_value="$2"; shift ;;
         --n_bootstrap) n_bootstrap="$2"; shift ;;
         --recalculate_not_updated_cns) recalculate_not_updated_cns="$2"; shift ;;
-    --recalculate_updated_cns) recalculate_updated_cns="$2"; shift ;;
+        --recalculate_updated_cns) recalculate_updated_cns="$2"; shift ;;
         --output_dir) output_dir="$2"; shift ;;
         --help) usage ;;
         *) echo "Unknown parameter passed: $1"; usage ;;
