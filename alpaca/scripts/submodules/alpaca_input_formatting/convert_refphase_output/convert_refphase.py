@@ -48,7 +48,7 @@ parser.add_argument(
     "--n_bootstrap", type=int, help="Number of bootstrap samples."
 )
 parser.add_argument(
-    "--recalculate_not_updated_cns", type=bool, default=False, 
+    "--recalculate_not_updated_cns", type=bool, default=False,
     help="Refphase updates copy-numbers for segments where allelic imbalance is detected. \
         The remaining segments inherit the copy-number of their parent ASCAT segment. \
         When calculating confidence intervals for these non-updated segments, two behaviours are possible. \
@@ -59,7 +59,7 @@ parser.add_argument(
         parent ASCAT segment"
 )
 parser.add_argument(
-    "--recalculate_updated_cns", type=bool, default=False, 
+    "--recalculate_updated_cns", type=bool, default=False,
     help="Refphase updates copy-numbers for segments where allelic imbalance is detected. \
         While doing so, it uses ASCAT equations to calculate CNS based on BAF, LOG, purity, ploidy etc. \
         Since we are using the same data and equations to caclculate confidence intervals, we can also re-calculate the original copy number as well.\
@@ -162,10 +162,11 @@ if args.heterozygous_SNPs_threshold == 0:
     CI_span = 0.5
     zero_snp_segments = refphase_segments[refphase_segments.heterozygous_SNP_number == 0]
     zero_snp_segments = zero_snp_segments[["segment", "sample", "cn_a", "cn_b"]]
-    zero_snp_segments['lower_CI_A'] = max(zero_snp_segments['cn_a']+CI_span/2, 0)
-    zero_snp_segments['upper_CI_A'] = zero_snp_segments['cn_a']+CI_span/2
-    zero_snp_segments['lower_CI_B'] = max(zero_snp_segments['cn_b']+CI_span/2, 0)
-    zero_snp_segments['upper_CI_B'] = zero_snp_segments['cn_b']+CI_span/2
+    CI_half = CI_span / 2.0
+    zero_snp_segments['lower_CI_A'] = (zero_snp_segments['cn_a'] - CI_half).clip(lower=0)
+    zero_snp_segments['upper_CI_A'] = zero_snp_segments['cn_a'] + CI_half
+    zero_snp_segments['lower_CI_B'] = (zero_snp_segments['cn_b'] - CI_half).clip(lower=0)
+    zero_snp_segments['upper_CI_B'] = zero_snp_segments['cn_b'] + CI_half
     zero_snp_segments.rename(columns={"cn_a": "cpnA", "cn_b": "cpnB"}, inplace=True)
     confidence_intervals = pd.concat([confidence_intervals, zero_snp_segments], ignore_index=True)
 

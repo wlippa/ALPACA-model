@@ -104,7 +104,7 @@ def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalcu
         upper_CI = max(upper_bound, 0.001)
         cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}
         # set fractional copy number as mean of the intervals:
-        if recalculate_updated_cns:  
+        if recalculate_updated_cns:
             # use this option if you want to recalculate the copy numbers based on SNPs. Despite using the same equations as                         
             # refphase, the results might differnt slightly
             cn_frac[allele] = (lower_CI + upper_CI) / 2
