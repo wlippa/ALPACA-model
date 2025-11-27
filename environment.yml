@@ -5,7 +5,7 @@ channels:
 - defaults
 dependencies:
   - ca-certificates
-  - gurobi::gurobi
+  - gurobi::gurobi>=13.0.0
   - openssl
   - pandas
   - python=3.13.2

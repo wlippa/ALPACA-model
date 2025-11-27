@@ -450,3 +450,26 @@ alpaca run --input_tumour_directory examples/example_cohort/input/LTX0000-Tumour
 ```
 
 This will enforce a minimum CI span of 0.05 for all allele-specific CI values and produce per-segment reports documenting any changes.
+
+```bash
+--extra_columns <col1> <col2> ...
+```
+
+List of additional columns to include in the output CSV files. By default, ALPACA outputs only the essential columns (`tumour_id`, `segment`, `clone`, `pred_CN_A`, `pred_CN_B`). Use this argument to request internal metrics or debugging information.
+
+Supported columns:
+- `complexity`: The tree complexity (number of events) of the solution.
+- `gurobi_time`: The runtime (in seconds) of the Gurobi optimizer for the solution.
+- `gurobi_gap`: The optimality gap of the solution (0.0 = optimal).
+- `CI_score`: The confidence interval objective score.
+- `D_score`: The distance objective score.
+
+**Note on Multi-Objective Metrics:**
+If you request `gurobi_time` or `gurobi_gap`, ALPACA will automatically include objective-specific metrics if they are available in the model run. For example, if running with both Distance (D) and Confidence Interval (CI) objectives (the default), requesting `gurobi_gap` will add:
+- `gurobi_gap_D`: The gap specifically for the Distance objective.
+- `gurobi_gap_CI`: The gap specifically for the CI objective.
+
+Example:
+```bash
+alpaca run ... --extra_columns complexity gurobi_time gurobi_gap
+```

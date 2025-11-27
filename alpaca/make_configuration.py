@@ -165,6 +165,14 @@ def get_parser():
         default=None,
         help="If provided together with --debug_solution_file, run a single iteration with this complexity",
     )
+    parser.add_argument(
+        "--extra_columns",
+        nargs="+",
+        type=str,
+        default=[],
+        help="List of extra columns to include in the output. Options: 'gurobi_gap', 'gurobi_time', 'complexity', 'CI_score', 'D_score'. "
+        "Note: requesting 'gurobi_time' or 'gurobi_gap' will automatically include objective-specific metrics (e.g. _D, _CI) if available.",
+    )
 
     return parser
 
@@ -243,6 +251,7 @@ def make_config(args_in):
         "env": ENV,
         "output_directory": args.output_directory,
         "min_ci": args.min_ci,
+        "extra_columns": args.extra_columns,
     }
     if args.mode == "tumour":
         preprocessing_config["input_tumour_directory"] = args.input_tumour_directory

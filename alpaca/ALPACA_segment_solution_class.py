@@ -392,6 +392,7 @@ class SegmentSolution:
         self.output_all_solutions: bool = False
         self.output_model_selection_table: bool = False
         self.debug: bool = False
+        self.extra_columns: list = []
         # load config
         # default values present in the config object will overwrite the default values defined above
         for key, value in self.config["preprocessing_config"].items():
@@ -483,6 +484,7 @@ class SegmentSolution:
             len(self.input_table["sample"].unique())
             * math.ceil(self.input_table[["cpnA", "cpnB"]].max().max()),
         )
+        
         objective_function_threshold = 0.1  # iterations will stop if D score does not improve by more than this value in 3 consecutive iterations
         # If user provided both a debug_solution_file and an explicit complexity,
         # run a single iteration with that complexity and emit raw Gurobi logs
@@ -601,6 +603,25 @@ class SegmentSolution:
                 self.optimal_solution_index
             )
 
+    def _get_columns_to_keep(self, base_columns, available_columns):
+        columns_to_keep = list(base_columns)
+        if self.extra_columns:
+            expanded_extra = []
+            for col in self.extra_columns:
+                expanded_extra.append(col)
+                if col == "gurobi_time":
+                    expanded_extra.extend(["gurobi_time_D", "gurobi_time_CI"])
+                if col == "gurobi_gap":
+                    expanded_extra.extend(["gurobi_gap_D", "gurobi_gap_CI"])
+            columns_to_keep.extend(expanded_extra)
+            
+        # remove duplicates preserving order
+        columns_to_keep = list(dict.fromkeys(columns_to_keep))
+        
+        # Only keep columns that actually exist in the dataframe
+        columns_to_keep = [c for c in columns_to_keep if c in available_columns]
+        return columns_to_keep
+
     def get_solution(self, s=None):
         if s is None:
             s = self.optimal_solution_index
@@ -610,19 +631,25 @@ class SegmentSolution:
         self.optimal_solution["tumour_id"] = self.tumour_id
         self.optimal_solution["segment"] = self.segment
         if not self.debug:
+            columns_to_drop = [
+                "allowed_complexity",
+                "variability_penalty_count",
+                "state_change_count",
+                "event_count",
+            ]
+            if self.extra_columns:
+                columns_to_drop = [c for c in columns_to_drop if c not in self.extra_columns]
+
             self.optimal_solution.drop(
-                columns=[
-                    "allowed_complexity",
-                    "variability_penalty_count",
-                    "state_change_count",
-                    "event_count",
-                ],
+                columns=columns_to_drop,
                 inplace=True,
                 errors="ignore",
             )
-            self.optimal_solution = self.optimal_solution[
-                ["tumour_id", "segment", "clone", "pred_CN_A", "pred_CN_B", "complexity"]
-            ]
+            
+            base_columns = ["tumour_id", "segment", "clone", "pred_CN_A", "pred_CN_B", "complexity"]
+            columns_to_keep = self._get_columns_to_keep(base_columns, self.optimal_solution.columns)
+            
+            self.optimal_solution = self.optimal_solution[columns_to_keep]
 
     def _get_all_solutions_subdir_name(self, all_dir: str) -> str:
         all_dir_seg = os.path.join(all_dir, self.segment)
@@ -790,9 +817,10 @@ class SegmentSolution:
                     else None
                 )
 
-            all_solutions = self.solutions_combined[
-                ["clone", "pred_CN_A", "pred_CN_B", "complexity", "allowed_complexity"]
-            ].copy()
+            base_columns = ["clone", "pred_CN_A", "pred_CN_B", "complexity", "allowed_complexity"]
+            columns_to_keep = self._get_columns_to_keep(base_columns, self.solutions_combined.columns)
+
+            all_solutions = self.solutions_combined[columns_to_keep].copy()
             # remove diploid clone from the all_solutions table as well
             all_solutions = all_solutions[all_solutions.clone != "diploid"]
             all_solutions["tumour_id"] = self.tumour_id
@@ -835,14 +863,21 @@ class SegmentSolution:
         # Before saving the final optimal solution, drop internal columns including
         # 'complexity' to keep the output minimal for non-debug runs.
         if not self.debug:
+            columns_to_drop = [
+                "allowed_complexity",
+                "complexity",
+                "variability_penalty_count",
+                "state_change_count",
+                "event_count",
+                "gurobi_time",
+                "gurobi_gap",
+            ]
+            # do not drop columns requested by user
+            if self.extra_columns:
+                columns_to_drop = [c for c in columns_to_drop if c not in self.extra_columns]
+
             self.optimal_solution.drop(
-                columns=[
-                    "allowed_complexity",
-                    "complexity",
-                    "variability_penalty_count",
-                    "state_change_count",
-                    "event_count",
-                ],
+                columns=columns_to_drop,
                 inplace=True,
                 errors="ignore",
             )
