@@ -75,6 +75,18 @@ class Model:
             raise ImportError(
                 "gurobipy is required to instantiate Model. Install Gurobi and the gurobipy package or run in an environment with Gurobi available."
             ) from e
+
+        # Check Gurobi version
+        try:
+            gurobi_version = gp.gurobi.version()
+            # Ensure version is a tuple/list of numbers before comparing
+            if isinstance(gurobi_version, (tuple, list)) and len(gurobi_version) >= 1:
+                if gurobi_version[0] < 13:
+                    sys.exit(
+                        f"Error: ALPACA requires Gurobi version 13 or greater. Found version {'.'.join(map(str, gurobi_version))}. Please upgrade gurobipy."
+                    )
+        except Exception:
+            pass
         # default parameters:
         self.homozygous_deletion_threshold = 1
         self.homo_del_size_limit = 5 * 10**7
@@ -1125,7 +1137,31 @@ class Model:
         )
         solution["state_change_count"] = int(self.total_edge_changes_count.X)
         solution["event_count"] = int(self.total_events_count.X)
-        solution["allowed_complexity"] = self.allowed_tree_complexity
+        solution["allowed_complexity"] = self.allowed_tree_complexity     
+
+        def _get_gap_time(obj_idx=None):
+            self.model.params.ObjNumber = obj_idx
+            try:
+                t = self.model.ObjPassNRuntime
+                g = self.model.ObjPassNMipGap
+            except:
+                t = -1
+                g = -1
+            return t, g
+
+        # Objective-specific columns
+        if getattr(self, "add_CI_objective", False):
+            # CI is always index 0 if present
+            t_ci, g_ci = _get_gap_time(0)
+            solution["gurobi_time_CI"] = t_ci
+            solution["gurobi_gap_CI"] = g_ci
+
+        if getattr(self, "add_D_objective", False):
+            # D is index 1 if CI is present, else 0
+            d_idx = 1 if getattr(self, "add_CI_objective", False) else 0
+            t_d, g_d = _get_gap_time(d_idx)
+            solution["gurobi_time_D"] = t_d
+            solution["gurobi_gap_D"] = g_d
         solution.index.name = "clone"
         solution.reset_index(inplace=True)
         self.solution = solution

@@ -9,5 +9,6 @@ alpaca run \
     --input_tumour_directory "${input_tumour_directory}" \
     --output_directory "${output_directory}" \
     --overwrite_output 1 \
-    --output_all_solutions
-  
+    --output_all_solutions \
+    --extra_columns "gurobi_time" "complexity" "gurobi_gap" \
+    --debug
