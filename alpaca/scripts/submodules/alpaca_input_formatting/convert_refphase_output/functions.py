@@ -103,27 +103,38 @@ def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalcu
         lower_CI = max(lower_bound, 0)
         upper_CI = max(upper_bound, 0.001)
         cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}
-        # set fractional copy number as mean of the intervals:
-        if recalculate_updated_cns:
-            # use this option if you want to recalculate the copy numbers based on SNPs. Despite using the same equations as                         
-            # refphase, the results might differnt slightly
-            cn_frac[allele] = (lower_CI + upper_CI) / 2
-            # alternatively, recalculate the copy number, but with few bootstraps it might fall outsie the cofidence intervals on some occasions:
-            # cn_frac[allele] = max(0, calculate_cn(seg_sample_df, bafs[allele]))
+        if refphase_updated_cns:
+            # if segment was updated by refphase
+            if recalculate_updated_cns:
+                # but we want to recalculate the copy numbers based on BAF and LogR
+                # keep the calculated CIs and set fractional copy number as mean of the intervals
+                # alternatively, recalculate the copy number, but with few bootstraps it might fall outsie the cofidence intervals on some occasions:
+                # cn_frac[allele] = max(0, calculate_cn(seg_sample_df, bafs[allele]))
+                cn_frac[allele] = (lower_CI + upper_CI) / 2
+            else:
+                # but we want to use refphase updated copy number and center the CIs around it:
+                half_ci_span = (upper_CI - lower_CI) / 2
+                refphase_cns = seg_sample_df[f'cn_{allele.lower()}'].unique()[0]  # value updated by refphase
+                lower_CI = refphase_cns - half_ci_span
+                upper_CI = refphase_cns + half_ci_span
+                cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}
+                cn_frac[allele] = refphase_cns
         else:
-            half_ci_span = (upper_CI - lower_CI) / 2
-            refphase_cns = seg_sample_df[f'cn_{allele.lower()}'].unique()[0]  # value updated by refphase
-            lower_CI = refphase_cns - half_ci_span
-            upper_CI = refphase_cns + half_ci_span
-            cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}
-            cn_frac[allele] = refphase_cns
-        if (not refphase_updated_cns) and (not recalculate_not_updated_cns):
-            half_ci_span = (upper_CI - lower_CI) / 2
-            ascat_cns = seg_sample_df[f'cn_{allele.lower()}'].unique()[0]  # original ascat value
-            lower_CI = ascat_cns - half_ci_span
-            upper_CI = ascat_cns + half_ci_span
-            cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}
-            cn_frac[allele] = ascat_cns
+            # if segment was NOT updated by refphase
+            if recalculate_not_updated_cns:
+                # but we want to recalculate the copy numbers based on BAF and LogR:
+                # keep the calculated CIs and set fractional copy number as mean of the intervals
+                # alternatively, recalculate the copy number, but with few bootstraps it might fall outsie the cofidence intervals on some occasions:
+                # cn_frac[allele] = max(0, calculate_cn(seg_sample_df, bafs[allele]))
+                cn_frac[allele] = (lower_CI + upper_CI) / 2
+            else:
+                # but we want to use refphase copy number and center the CIs around it:
+                half_ci_span = (upper_CI - lower_CI) / 2
+                refphase_cns = seg_sample_df[f'cn_{allele.lower()}'].unique()[0]
+                lower_CI = refphase_cns - half_ci_span
+                upper_CI = refphase_cns + half_ci_span
+                cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}
+                cn_frac[allele] = refphase_cns
     return pd.DataFrame(
         {
             "cpnA": cn_frac["A"],
