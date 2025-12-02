@@ -48,29 +48,30 @@ parser.add_argument(
     "--n_bootstrap", type=int, help="Number of bootstrap samples."
 )
 parser.add_argument(
-    "--recalculate_not_updated_cns", type=bool, default=False,
+    "--recalculate_not_updated_cns", type=int, choices=[0, 1], default=0,
     help="Refphase updates copy-numbers for segments where allelic imbalance is detected. \
         The remaining segments inherit the copy-number of their parent ASCAT segment. \
         When calculating confidence intervals for these non-updated segments, two behaviours are possible. \
-        If set to True, we will recalculate confidence intervals and fractional copy-numbers for these segments using BAF and LOGr of the subset of SNPs\
+        If set to 1, we will recalculate confidence intervals and fractional copy-numbers for these segments using BAF and LOGr of the subset of SNPs\
         assigned  to the Refphase segment in questions. Otherwise, we will first center the SNPs around the original ASCAT copy-numbers, and then calculate\
         confidence intervals. The rationale for such behaviour is that in the second case, there is not enough evidence to divert from the null\
         (i.e. ASCAT solution), but the uncertainty in the copy-number estimate should still be captured and should be lower compared to the entire\
         parent ASCAT segment"
 )
 parser.add_argument(
-    "--recalculate_updated_cns", type=bool, default=False,
+    "--recalculate_updated_cns", type=int, choices=[0, 1], default=0,
     help="Refphase updates copy-numbers for segments where allelic imbalance is detected. \
         While doing so, it uses ASCAT equations to calculate CNS based on BAF, LOG, purity, ploidy etc. \
         Since we are using the same data and equations to caclculate confidence intervals, we can also re-calculate the original copy number as well.\
-        However, for many segments, such recalculated copy number differs slightly from the value provided by the refphase. If this argument is false, \
+        However, for many segments, such recalculated copy number differs slightly from the value provided by the refphase. If this argument is 0, \
         instead of calculating the copy number, we will just calculate the intervals and center them around the original refphase provided value"
 )
 
 parser.add_argument(
     "--split_segments",
-    type=bool,
-    default=False,
+    type=int,
+    choices=[0, 1],
+    default=0,
     help="Split input into separate files for each segment. Useful for parallel processing.",
 )
 
@@ -80,12 +81,11 @@ tumour_id = args.tumour_id
 output_dir = args.output_dir
 ci_value = args.ci_value
 n_bootstrap = args.n_bootstrap
-recalculate_not_updated_cns = args.recalculate_not_updated_cns
-recalculate_updated_cns = args.recalculate_updated_cns
-split_segments = args.split_segments
+recalculate_not_updated_cns = bool(args.recalculate_not_updated_cns)
+recalculate_updated_cns = bool(args.recalculate_updated_cns)
+split_segments = bool(args.split_segments)
 # create output directory:
 os.makedirs(output_dir, exist_ok=True)
-
 # read data
 refphase_segments = pd.read_csv(args.refphase_segments, sep="\t")
 refphase_snps = pd.read_csv(args.refphase_snps, sep="\t")
@@ -169,7 +169,10 @@ if args.heterozygous_SNPs_threshold == 0:
     zero_snp_segments['upper_CI_B'] = zero_snp_segments['cn_b'] + CI_half
     zero_snp_segments.rename(columns={"cn_a": "cpnA", "cn_b": "cpnB"}, inplace=True)
     confidence_intervals = pd.concat([confidence_intervals, zero_snp_segments], ignore_index=True)
-
+confidence_intervals['chr'] = confidence_intervals['segment'].apply(lambda x: int(x.split('_')[0]))
+confidence_intervals['start'] = confidence_intervals['segment'].apply(lambda x: int(x.split('_')[1]))
+confidence_intervals = confidence_intervals.sort_values(by=['sample', 'chr', 'start'])
+confidence_intervals.drop(columns=['chr', 'start'], inplace=True)
 ci_table = confidence_intervals.merge(refphase_segments)[
     [
         "segment",
@@ -216,7 +219,6 @@ print(f"{tumour_id} done")
 print(f"Creating ALPACA input table for {tumour_id}")
 alpaca_input = alpaca_input[["tumour_id", "sample", "segment", "cpnA", "cpnB"]]
 # write to file:
-
 alpaca_input.to_csv(f"{output_dir}/ALPACA_input_table.csv", index=False)
 
 # split input into separate files for each segment to faciliate parallel processing:
