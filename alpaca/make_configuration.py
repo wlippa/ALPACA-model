@@ -173,6 +173,14 @@ def get_parser():
         help="List of extra columns to include in the output. Options: 'gurobi_gap', 'gurobi_time', 'complexity', 'CI_score', 'D_score'. "
         "Note: requesting 'gurobi_time' or 'gurobi_gap' will automatically include objective-specific metrics (e.g. _D, _CI) if available.",
     )
+    parser.add_argument(
+        "--strict_gap",
+        type=int,
+        choices=[0, 1],
+        default=1,
+        help="If set to 1 (default), enforce zero gap tolerance for Gurobi optimization to improve reproducibility. "
+        "When enabled, the solver will only stop when it proves optimality (gap=0) or hits the time limit.",
+    )
 
     return parser
 
@@ -240,6 +248,7 @@ def make_config(args_in):
             "debug": args.debug,
             "debug_solution_file": args.debug_solution_file,
             "complexity": args.complexity,
+            "strict_gap": bool(args.strict_gap),
         }
     )
     preprocessing_config = {

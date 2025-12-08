@@ -70,7 +70,8 @@ def run_alpaca():
         create_logger,
         save_dataframe_to_csv,
         process_ci_reports,
-        process_monoclonal_reports
+        process_monoclonal_reports,
+        process_run_summary_reports
     )
     from alpaca.make_configuration import make_config
     from alpaca.analysis import get_cn_change_to_ancestor
@@ -165,10 +166,12 @@ def run_alpaca():
                 output_filename="cn_change_to_ancestor.csv",
             )
             # parse and combine reports:
-            process_ci_reports(SS.config["preprocessing_config"]["output_directory"], delete=True, outpath=SS.config["preprocessing_config"]["output_directory"] + "/ci_modified_report.csv")
-            process_monoclonal_reports(SS.config["preprocessing_config"]["output_directory"], delete=True, outpath=SS.config["preprocessing_config"]["output_directory"] + "/monoclonal_samples_report.csv")
+            output_dir = SS.config["preprocessing_config"]["output_directory"]
+            process_ci_reports(output_dir, delete=True, outpath=output_dir + "/ci_modified_report.csv")
+            process_monoclonal_reports(output_dir, delete=True, outpath=output_dir + "/monoclonal_samples_report.csv")
+            process_run_summary_reports(output_dir, delete=True, outpath=output_dir + "/run_summary.csv")
             logger.info(
-                f"""Analysis completed successfully. Output saved to: {SS.config["preprocessing_config"]["output_directory"]}"""
+                f"""Analysis completed successfully. Output saved to: {output_dir}"""
             )
         logger.info("Done")
     except Exception as e:

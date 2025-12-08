@@ -51,6 +51,7 @@ class Model:
             "debug": False,
             "debug_solution_file": "",
             "complexity": None,
+            "strict_gap": True,
         }
 
     def __init__(
@@ -239,6 +240,15 @@ class Model:
         self.model.params.Threads = self.cpus * 2
         if self.BestObjStop:
             self.model.params.BestObjStop = self.BestObjStop
+        
+        # Set strict gap tolerance for reproducibility if requested
+        # MIPGap: relative gap tolerance (fraction of objective value)
+        # MIPGapAbs: absolute gap tolerance (absolute difference)
+        # Setting both to 0 forces the solver to prove optimality before stopping
+        # (unless time limit is reached). This improves reproducibility across runs.
+        if getattr(self, "strict_gap", True):
+            self.model.params.MIPGap = 0.0
+            self.model.params.MIPGapAbs = 0.0
         for allele in ["A", "B"]:
             self.X[allele] = self.model.addVars(
                 self.clone_names, name=f"X{allele}", lb=0, vtype=GRB.INTEGER
@@ -1137,14 +1147,14 @@ class Model:
         )
         solution["state_change_count"] = int(self.total_edge_changes_count.X)
         solution["event_count"] = int(self.total_events_count.X)
-        solution["allowed_complexity"] = self.allowed_tree_complexity     
+        solution["allowed_complexity"] = self.allowed_tree_complexity
 
         def _get_gap_time(obj_idx=None):
             self.model.params.ObjNumber = obj_idx
             try:
                 t = self.model.ObjPassNRuntime
                 g = self.model.ObjPassNMipGap
-            except:
+            except Exception:
                 t = -1
                 g = -1
             return t, g
@@ -1162,6 +1172,50 @@ class Model:
             t_d, g_d = _get_gap_time(d_idx)
             solution["gurobi_time_D"] = t_d
             solution["gurobi_gap_D"] = g_d
+        
+        # Store gap status info for run_summary report
+        # Check if any objective has non-zero gap
+        try:
+            runtime = self.model.Runtime
+            status = self.model.Status
+            # Collect max gap across objectives
+            max_gap = 0.0
+            gap_reason = "optimal"
+            
+            if getattr(self, "add_CI_objective", False):
+                _, g_ci = _get_gap_time(0)
+                if g_ci > max_gap:
+                    max_gap = g_ci
+            
+            if getattr(self, "add_D_objective", False):
+                d_idx = 1 if getattr(self, "add_CI_objective", False) else 0
+                _, g_d = _get_gap_time(d_idx)
+                if g_d > max_gap:
+                    max_gap = g_d
+            
+            # Determine reason for non-zero gap
+            if max_gap > 0:
+                if runtime >= self.time_limit - 0.1:  # allow small tolerance
+                    gap_reason = "time_limit"
+                elif not getattr(self, "strict_gap", True):
+                    gap_reason = "gap_tolerance"
+                else:
+                    gap_reason = "other"
+            
+            self.gap_status = {
+                "max_gap": max_gap,
+                "gap_reason": gap_reason,
+                "runtime": runtime,
+                "status": status,
+            }
+        except Exception:
+            self.gap_status = {
+                "max_gap": -1,
+                "gap_reason": "unknown",
+                "runtime": -1,
+                "status": -1,
+            }
+        
         solution.index.name = "clone"
         solution.reset_index(inplace=True)
         self.solution = solution
