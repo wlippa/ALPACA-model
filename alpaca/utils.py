@@ -344,3 +344,47 @@ def process_elbow_increase_reports(dirpath: str, delete: bool = False, outpath: 
             os.remove(fp)
         except Exception as e:
             print(f"Warning: failed to remove {fp}: {e}", file=sys.stderr)
+
+
+def process_run_summary_reports(dirpath: str, delete: bool = False, outpath: Optional[str] = None) -> pd.DataFrame:
+    """Combine segment-level run_summary reports into a single file.
+    
+    Only includes segments with non-zero gap (non-optimal solutions).
+    Reports gap value and reason (time_limit, gap_tolerance, or other).
+    """
+    pattern = os.path.join(dirpath, "*_run_summary.csv")
+    files = sorted(glob.glob(pattern))
+    if outpath is None:
+        outpath = os.path.join(dirpath, "run_summary.csv")
+    
+    # Concatenate all segment reports
+    if not files:
+        combined_df = pd.DataFrame(columns=[
+            'tumour_id', 'segment', 'max_gap', 'gap_reason', 
+            'runtime', 'optimal_complexity', 'strict_gap_enabled'
+        ])
+    else:
+        dfs = []
+        for fp in files:
+            try:
+                df = pd.read_csv(fp)
+                dfs.append(df)
+            except Exception as e:
+                print(f"Warning: failed to read {fp}: {e}", file=sys.stderr)
+                continue
+        if dfs:
+            combined_df = pd.concat(dfs, ignore_index=True)
+        else:
+            combined_df = pd.DataFrame(columns=[
+                'tumour_id', 'segment', 'max_gap', 'gap_reason', 
+                'runtime', 'optimal_complexity', 'strict_gap_enabled'
+            ])
+    
+    combined_df.to_csv(outpath, index=False)
+    
+    if delete and files:
+        for fp in files:
+            try:
+                os.remove(fp)
+            except Exception as e:
+                print(f"Warning: failed to remove {fp}: {e}", file=sys.stderr)

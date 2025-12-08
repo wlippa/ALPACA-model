@@ -381,7 +381,7 @@ class SegmentSolution:
         self.config: Dict[str, Any] = config
         self.metrics: Dict[str, list] = {
             name: []
-            for name in ["D_scores", "solutions", "run_time", "models", "complexity"]
+            for name in ["D_scores", "solutions", "run_time", "models", "complexity", "gap_status"]
         }
         self.no_change_in_complexity: bool = False
         self.no_change_in_D_score: bool = False
@@ -447,6 +447,16 @@ class SegmentSolution:
         self.metrics["run_time"].append(model_iteration.model.Runtime)
         self.metrics["models"].append(model_iteration.model)
         self.metrics["complexity"].append(model_iteration.solution.complexity.iloc[0])
+        # Store gap status for run_summary report
+        if hasattr(model_iteration, "gap_status"):
+            self.metrics["gap_status"].append(model_iteration.gap_status)
+        else:
+            self.metrics["gap_status"].append({
+                "max_gap": -1,
+                "gap_reason": "unknown",
+                "runtime": -1,
+                "status": -1,
+            })
 
     def run_model(self, allowed_complexity):
         allowed_complexity = {"allowed_tree_complexity": allowed_complexity}
@@ -766,6 +776,46 @@ class SegmentSolution:
         monoclonal_samples_copynumbers['distance_to_integer_B'] = abs(monoclonal_samples_copynumbers['cpnB'] - monoclonal_samples_copynumbers['cpnB'].round())
         self.monoclonal_samples_report = monoclonal_samples_copynumbers
 
+    def _save_run_summary_report(self, output_dir: str):
+        """Create a run_summary report showing segments with non-zero gap and reasons."""
+        try:
+            if not hasattr(self, "metrics") or "gap_status" not in self.metrics:
+                return
+            
+            # Get gap status for the optimal solution
+            optimal_idx = self.optimal_solution_index
+            if optimal_idx is None or optimal_idx >= len(self.metrics["gap_status"]):
+                return
+            
+            gap_info = self.metrics["gap_status"][optimal_idx]
+            max_gap = gap_info.get("max_gap", -1)
+            
+            # Only report if gap > 0 (non-optimal solution)
+            if max_gap <= 0:
+                return
+            
+            # Create report entry
+            report_entry = {
+                "tumour_id": self.tumour_id,
+                "segment": self.segment,
+                "max_gap": max_gap,
+                "gap_reason": gap_info.get("gap_reason", "unknown"),
+                "runtime": gap_info.get("runtime", -1),
+                "optimal_complexity": optimal_idx,
+                "strict_gap_enabled": getattr(self, "strict_gap", True),
+            }
+            
+            # Save to segment-specific run_summary file
+            run_summary_path = os.path.join(
+                output_dir,
+                f"{self.tumour_id}_{self.segment}_run_summary.csv",
+            )
+            df = pd.DataFrame([report_entry])
+            df.to_csv(run_summary_path, index=False)
+        except Exception:
+            # Best effort; do not fail if run_summary cannot be created
+            pass
+
     def set_directories(self):
         is_running_in_nextflow = self.config["preprocessing_config"].get('mode') == 'segment'
         self.tumour_dir = self.config["preprocessing_config"].get('input_tumour_directory')
@@ -905,6 +955,10 @@ class SegmentSolution:
                 f"{self.tumour_id}_{self.segment}_elbow_increase_report.csv",
             )
             self.elbow_increase_report.to_csv(elbow_report_path, index=False)
+        
+        # Save run summary report with gap status
+        self._save_run_summary_report(output_dir)
+        
         if os.path.exists(output_path):
             logger.info("Segment output created")
         else:

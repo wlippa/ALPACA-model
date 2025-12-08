@@ -473,3 +473,33 @@ Example:
 ```bash
 alpaca run ... --extra_columns complexity gurobi_time gurobi_gap
 ```
+
+```bash
+--strict_gap <0|1>
+```
+
+Control the Gurobi MIP gap tolerance for improved reproducibility (default: 1, enabled).
+
+When `--strict_gap 1` is set (default), ALPACA configures Gurobi to only stop optimization when:
+1. The solver proves optimality (gap = 0), or
+2. The time limit is reached
+
+This is achieved by setting both `MIPGap = 0.0` and `MIPGapAbs = 0.0`, which forces the solver to find provably optimal solutions rather than stopping at "good enough" solutions within default tolerances.
+
+**Why use strict_gap?**
+- **Reproducibility**: Default gap tolerances can cause the solver to stop at different points across runs, leading to slightly different solutions
+- **Determinism**: With strict_gap enabled, solutions are more deterministic (though time limits can still affect results)
+
+**Important notes:**
+- When strict_gap is enabled and segments hit the time limit before proving optimality, those segments will be reported in `run_summary.csv`
+- The `run_summary.csv` file lists all segments where gap > 0, showing:
+  - The final gap value
+  - Why optimality wasn't reached (`time_limit`, `gap_tolerance`, or `other`)
+  - Runtime and complexity information
+- Set `--strict_gap 0` to use Gurobi's default gap tolerances (may finish faster but less reproducible)
+
+Example:
+```bash
+alpaca run ... --strict_gap 1  # Enforce zero gap (default)
+alpaca run ... --strict_gap 0  # Allow default gap tolerances
+```
