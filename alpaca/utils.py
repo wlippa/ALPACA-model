@@ -148,9 +148,128 @@ def set_run_mode(config: dict) -> tuple[dict, str]:
 
 
 def read_tree_json(json_path: str) -> list[list[str]]:
-    with open(json_path, "r") as f:
-        tree = json.load(f)
-    return tree
+    """Load a tree either from a JSON list-of-lists or a Newick file.
+
+    The caller passes the expected JSON path (e.g. tree_paths.json). If that file
+    does not exist, a sibling `tree_paths.nwk` file is used instead. Supplying a
+    direct path to a `.nwk` file is also supported.
+    """
+    path = Path(json_path)
+    # Accept direct Newick path
+    if path.suffix == ".nwk" and path.exists():
+        return _read_tree_newick(path)
+
+    if path.exists():
+        with open(path, "r") as f:
+            tree = json.load(f)
+        return tree
+
+    fallback = path.with_suffix(".nwk")
+    if fallback.exists():
+        return _read_tree_newick(fallback)
+
+    raise FileNotFoundError(
+        f"Tree file not found. Expected either '{path}' or '{fallback}' to exist."
+    )
+
+
+def _read_tree_newick(nwk_path: Path) -> list[list[str]]:
+    """Parse a Newick file into the internal list-of-paths representation."""
+    newick_content = Path(nwk_path).read_text().strip()
+    return newick_to_paths(newick_content)
+
+
+def newick_to_paths(newick: str) -> list[list[str]]:
+    """Convert a Newick string into ALPACA's list-of-paths format."""
+    newick = newick.strip()
+    if not newick:
+        raise ValueError("Empty Newick string provided")
+    if newick.endswith(";"):
+        newick = newick[:-1]
+
+    def consume_whitespace(idx: int) -> int:
+        while idx < len(newick) and newick[idx].isspace():
+            idx += 1
+        return idx
+
+    def parse_label(idx: int) -> tuple[str, int]:
+        label_chars = []
+        while idx < len(newick) and newick[idx] not in ",()":
+            label_chars.append(newick[idx])
+            idx += 1
+        label = "".join(label_chars).strip()
+        if label.startswith("'") and label.endswith("'"):
+            label = label[1:-1]
+        if label.startswith('"') and label.endswith('"'):
+            label = label[1:-1]
+        if ":" in label:
+            label = label.split(":", 1)[0]
+        return label, idx
+
+    def parse_subtree(idx: int) -> tuple[dict, int]:
+        idx = consume_whitespace(idx)
+        if idx >= len(newick):
+            raise ValueError("Unexpected end of Newick string")
+
+        if newick[idx] == "(":
+            idx += 1
+            children = []
+            idx = consume_whitespace(idx)
+            while True:
+                child, idx = parse_subtree(idx)
+                children.append(child)
+                idx = consume_whitespace(idx)
+                if idx >= len(newick):
+                    raise ValueError("Unexpected end of Newick string while parsing children")
+                if newick[idx] == ",":
+                    idx += 1
+                    idx = consume_whitespace(idx)
+                    continue
+                if newick[idx] == ")":
+                    idx += 1
+                    break
+                raise ValueError(f"Unexpected character '{newick[idx]}' in Newick content")
+
+            idx = consume_whitespace(idx)
+            label, idx = parse_label(idx)
+            if not label:
+                raise ValueError("Newick internal nodes must have names for ALPACA conversion")
+            return {"name": label, "children": children}, idx
+
+        label, idx = parse_label(idx)
+        if not label:
+            raise ValueError("Newick leaves must have names for ALPACA conversion")
+        return {"name": label, "children": []}, idx
+
+    def collect_paths(node: dict, prefix: list[str]) -> list[list[str]]:
+        current = prefix + [node["name"]]
+        if not node["children"]:
+            return [current]
+        paths: list[list[str]] = []
+        for child in node["children"]:
+            paths.extend(collect_paths(child, current))
+        return paths
+
+    start_idx = consume_whitespace(0)
+    root, idx_after = parse_subtree(start_idx)
+    idx_after = consume_whitespace(idx_after)
+    # Handle chained wrappers like ")parent1)parent2" that wrap the parsed tree
+    # into higher-level unary parents. This occurs when the Newick has more
+    # closing parentheses than were opened at the start, e.g.
+    # "(child)parent1)parent2;". We iteratively wrap the current root inside
+    # the newly parsed parent node until the string is fully consumed.
+    while idx_after < len(newick):
+        if newick[idx_after] != ")":
+            raise ValueError("Unexpected trailing characters in Newick string")
+        idx_after += 1
+        idx_after = consume_whitespace(idx_after)
+        parent_label, idx_after = parse_label(idx_after)
+        if not parent_label:
+            raise ValueError("Newick internal nodes must have names for ALPACA conversion")
+        root = {"name": parent_label, "children": [root]}
+        idx_after = consume_whitespace(idx_after)
+
+    return collect_paths(root, [])
 
 
 def find_path_edges(branch, tree_edges):
