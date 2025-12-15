@@ -264,7 +264,7 @@ def validate_inputs(
     cpt_clones = set(cpt.index.unique())
     tree_clones = set([c for branch in t for c in branch])
     if cpt_clones != tree_clones:
-        raise ValueError("Clones in cp_table and tree_paths.json do not match")
+        raise ValueError("Clones in cp_table and tree_paths file (json or nwk) do not match")
     # check if all samples are present:
     it_samples = set(it["sample"].unique())
     cpt_samples = set(cpt.columns)

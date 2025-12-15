@@ -153,7 +153,9 @@ This table contains an index column specifying clone names (which must match the
 <!-- TOC --><a name="4-phylogenetic-tree"></a>
 #### 4. Phylogenetic tree
 
-A json file (named `tree_paths.json`) containing the SNV tree structured encoded as an array of arrays - each of the sub-arrays represents the phylogenetic path from the trunk (most recent common ancestor) to a terminal clone (leaf). For example, consider a simple tree with MRCA and three subclones. Subclones A and B are direct descendants of MRCA, and clone C is the child of clone B:
+Provide the SNV tree either as a JSON list-of-paths (`tree_paths.json`, preferred) or as a Newick file (`tree_paths.nwk`). If `tree_paths.json` is missing, ALPACA will automatically read `tree_paths.nwk` and convert it to the internal list-of-paths format described below.
+
+JSON format: a list of arrays where each sub-array represents the phylogenetic path from the trunk (most recent common ancestor) to a terminal clone (leaf). For example, consider a simple tree with MRCA and three subclones. Subclones A and B are direct descendants of MRCA, and clone C is the child of clone B:
 
 ```
        MRCA
@@ -167,6 +169,12 @@ Such tree would be encoded as following in ALPACA format:
 
 ```json
 [['MRCA','A'],['MRCA','B','C]]
+```
+
+The same tree in Newick format would look like:
+
+```
+(A,(C)B)MRCA;
 ```
 
 A more complex tree, with name of clones consistent with names used in the `cp_table.csv` above would look like this:
@@ -185,7 +193,7 @@ LTX0000-Tumour1
 ├── ALPACA_input_table.csv
 ├── ci_table.csv
 ├── cp_table.csv
-└── tree_paths.json
+└── tree_paths.json  (or tree_paths.nwk)
 ```
 
 <!-- TOC --><a name="running-alpaca"></a>
@@ -307,7 +315,7 @@ LTX0000-Tumour1
 ├── ALPACA_input_table.csv
 ├── ci_table.csv
 ├── cp_table.csv
-└── tree_paths.json
+└── tree_paths.json  (or tree_paths.nwk)
 ```
 
 but if you started from CONIPHER and Refphase, intermediary input files will also be present:
@@ -321,7 +329,7 @@ but if you started from CONIPHER and Refphase, intermediary input files will als
 ├── phased_segs.tsv <- Intermediary input files
 ├── phased_snps.tsv <- Intermediary input files
 ├── purity_ploidy.tsv <- Intermediary input files
-└── tree_paths.json  <- ALPACA input
+└── tree_paths.json  (or tree_paths.nwk) <- ALPACA input
 ```
 
 Once ALPACA starts running, you will see the logo and the progress bar:
@@ -346,7 +354,7 @@ ALPACA operates sequentially on each genomic segment. During this process, the `
 │   ├── ALPACA_input_table_LTX0000-Tumour1_10_74237002_135381927.csv
 │   ├── ALPACA_input_table_LTX0000-Tumour1_10_95074_38406884.csv
 │   ├── ALPACA_input_table_LTX0000-Tumour1_11_17317215_44596409.csv
-└── tree_paths.json  <- ALPACA input
+└── tree_paths.json  (or tree_paths.nwk) <- ALPACA input
 ```
 
 Solution for each segment is saved in the output directory. While the programme is running, you will see that output directory is populated with separate solution files:
