@@ -1,4 +1,5 @@
 import argparse
+import ast
 import os
 import sys
 from alpaca.ALPACA_model_class import Model as ALPACA_Model
@@ -73,6 +74,30 @@ def get_parser():
         type=str,
         default="",
         help="Directory where gurobi logs should be stored. If no value is speficied, logs will not be saved.",
+    )
+    parser.add_argument(
+        "--solver",
+        type=str,
+        default="gurobi",
+        help="Solver backend to use (options: gurobi, pyomo).",
+    )
+    parser.add_argument(
+        "--pyomo_solver",
+        type=str,
+        default="scip",
+        help="Pyomo solver plugin to use when --solver pyomo (e.g. scip, glpk, gurobi).",
+    )
+    parser.add_argument(
+        "--solver_logs",
+        type=str,
+        default="",
+        help="Optional log directory for solver-agnostic backends. Falls back to --gurobi_logs when empty.",
+    )
+    parser.add_argument(
+        "--pyomo_solver_options",
+        nargs="+",
+        default=[],
+        help="Additional Pyomo solver options in key=value form (e.g. ratioGap=1e-5).",
     )
     parser.add_argument(
         "--objectives",
@@ -185,6 +210,42 @@ def get_parser():
     return parser
 
 
+def _coerce_solver_option_value(raw: str):
+    token = raw.strip()
+    lowered = token.lower()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    if lowered == "none":
+        return None
+    try:
+        return ast.literal_eval(token)
+    except (ValueError, SyntaxError):
+        return token
+
+
+def _parse_solver_option_list(values):
+    options = {}
+    for item in values or []:
+        if "=" not in item:
+            print(
+                f"Error: Invalid --pyomo_solver_options entry '{item}'. Use key=value format.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        key, value = item.split("=", 1)
+        key = key.strip()
+        if not key:
+            print(
+                f"Error: Invalid --pyomo_solver_options entry '{item}'. Option name cannot be empty.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        options[key] = _coerce_solver_option_value(value)
+    return options
+
+
 def validate_args(args):
     if args.mode == "tumour":
         if not args.input_tumour_directory:
@@ -214,6 +275,7 @@ def make_config(args_in):
         args_list = args_in
     args, remaining_args = parser.parse_known_args(args_list)
     validate_args(args)
+    pyomo_solver_options = _parse_solver_option_list(args.pyomo_solver_options)
     # If there are any unknown args left over, fail fast (unless running in dev
     # mode where remaining args are forwarded to dev.parse_optional_args()).
     # also, first argument is a command, so skip that:
@@ -231,10 +293,16 @@ def make_config(args_in):
     # Override defaults with CLI args and map CLI arg names to Model property names
     model_config.update(
         {
+            "solver": args.solver,
+            "pyomo_solver": args.pyomo_solver,
             "objectives": args.objectives,
             "minimise_events_to_diploid": bool(args.minimise_events_to_diploid),
-            "prevent_increase_from_zero_flag": bool(args.prevent_increase_from_zero_flag),
-            "add_event_count_constraints_flag": bool(args.add_event_count_constraints_flag),
+            "prevent_increase_from_zero_flag": bool(
+                args.prevent_increase_from_zero_flag
+            ),
+            "add_event_count_constraints_flag": bool(
+                args.add_event_count_constraints_flag
+            ),
             "add_allow_only_one_non_directional_event_flag": bool(
                 args.add_allow_only_one_non_directional_event_flag
             ),
@@ -243,12 +311,14 @@ def make_config(args_in):
             "time_limit": args.time_limit,
             "cpus": args.cpus,
             "gurobi_logs": args.gurobi_logs,
+            "solver_logs": args.solver_logs or args.gurobi_logs,
             "missing_clones_inherit_from_children_flag": args.missing_clones_inherit_from_children_flag,
             "d_zero": args.d_zero,
             "debug": args.debug,
             "debug_solution_file": args.debug_solution_file,
             "complexity": args.complexity,
             "strict_gap": bool(args.strict_gap),
+            "pyomo_solver_options": pyomo_solver_options,
         }
     )
     preprocessing_config = {

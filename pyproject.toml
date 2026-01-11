@@ -16,9 +16,8 @@ dependencies = [
     "gurobipy",
     "kneed",
     "scipy",
-    "tqdm"
-
-
+    "tqdm",
+    "pyomo",
 ]
 
 [tool.hatch.build]

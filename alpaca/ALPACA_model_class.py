@@ -27,6 +27,9 @@ class Model:
         these values and avoid duplicating defaults in multiple places.
         """
         return {
+            "solver": "gurobi",
+            "pyomo_solver": "scip",
+            "pyomo_solver_options": {},
             "homozygous_deletion_threshold": 1,
             "homo_del_size_limit": 5 * 10**7,
             "limit_homozygous_deletions_threshold_flag": True,
@@ -47,6 +50,7 @@ class Model:
             "BestObjStop": None,
             "license": "local",
             "gurobi_logs": "",
+            "solver_logs": "",
             "enforce_tree_complexity": True,
             "debug": False,
             "debug_solution_file": "",

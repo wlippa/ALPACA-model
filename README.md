@@ -38,6 +38,7 @@ Repository containing core ALPACA code
       + [Running ALPACA using CONIPHER and Refphase outputs](#running-alpaca-using-conipher-and-refphase-outputs)
       + [Running ALPACA](#running-alpaca-1)
       + [Available options](#available-options)
+         - [Solver selection](#solver-selection)
 
 <!-- TOC end -->
 
@@ -68,7 +69,7 @@ Next, install ALPACA with pip:
 conda run -n alpaca pip install dist/*.whl
 ```
 
-ALPACA is using Gurobi solver - please obtain free academic license before running the model at [Gurobi](https://www.gurobi.com/academia/academic-program-and-licenses)
+ALPACA ships with a Gurobi backend by default—please obtain a free academic license at [Gurobi](https://www.gurobi.com/academia/academic-program-and-licenses) if you plan to use it. Alternatively, you can select the new Pyomo backend to run ALPACA with open-source MILP solvers such as CBC or GLPK (see [Solver selection](#solver-selection)).
 
 <!-- TOC --><a name="testing-installation"></a>
 ### Testing installation
@@ -472,6 +473,8 @@ Supported columns:
 - `CI_score`: The confidence interval objective score.
 - `D_score`: The distance objective score.
 
+`gurobi_time`/`gurobi_gap` (and their objective-specific variants) are only populated when the Gurobi backend is active. When running via Pyomo they are returned as `-1` so that downstream tooling can detect the absence of solver-native metrics.
+
 **Note on Multi-Objective Metrics:**
 If you request `gurobi_time` or `gurobi_gap`, ALPACA will automatically include objective-specific metrics if they are available in the model run. For example, if running with both Distance (D) and Confidence Interval (CI) objectives (the default), requesting `gurobi_gap` will add:
 - `gurobi_gap_D`: The gap specifically for the Distance objective.
@@ -499,8 +502,8 @@ This is achieved by setting both `MIPGap = 0.0` and `MIPGapAbs = 0.0`, which for
 - **Determinism**: With strict_gap enabled, solutions are more deterministic (though time limits can still affect results)
 
 **Important notes:**
-- When strict_gap is enabled and segments hit the time limit before proving optimality, those segments will be reported in `run_summary.csv`
-- The `run_summary.csv` file lists all segments where gap > 0, showing:
+- When strict_gap is enabled and segments hit the time limit before proving optimality, those segments will be reported in `run_gap_summary.csv`
+- The `run_gap_summary.csv` file lists all segments where gap > 0, showing:
   - The final gap value
   - Why optimality wasn't reached (`time_limit`, `gap_tolerance`, or `other`)
   - Runtime and complexity information
@@ -511,3 +514,51 @@ Example:
 alpaca run ... --strict_gap 1  # Enforce zero gap (default)
 alpaca run ... --strict_gap 0  # Allow default gap tolerances
 ```
+
+```bash
+--solver <gurobi|pyomo>
+```
+
+Select the solver backend. `gurobi` (default) requires a licensed Gurobi installation and runs the model via Gurobi API. `pyomo` builds the ALPACA formulation with Pyomo and allows an open-source MILP solver via `--pyomo_solver`. Use this to run ALPACA in environments where Gurobi is not available. Note that advanced diagnostics such as `gurobi_time`/`gurobi_gap` columns are only produced when the Gurobi backend is used. We tested the software with `scip` and `glpk` solvers. Other solvers, such as `cbc` or `HiGHS` error for more complex cases.
+
+```bash
+--pyomo_solver <scip|glpk|gurobi|...>
+```
+
+When `--solver pyomo` is set, this flag selects the Pyomo solver plugin (default: `scip`). Ensure the corresponding command-line solver is installed and on your `$PATH`. Any solver supported by Pyomo for MILP/MIP (CBC, GLPK, CPLEX, Gurobi, etc.) can be used in principle, but only `scip` and `glpk` were tested. Features that rely on quadratic terms (e.g. positive variability penalties) currently require a solver with MIQP support; the Pyomo backend will raise an error if an unsupported configuration is detected.
+
+```bash
+--pyomo_solver_options key=value [key=value ...]
+```
+
+Optional list of additional parameters forwarded directly to the selected Pyomo solver. Use this to tune tolerances or enable solver-specific behaviour, e.g. `--pyomo_solver_options ratioGap=1e-5 maxNodes=1000`. Values are parsed as Python literals when possible (`1e-5`, `True`, `None`, etc.), otherwise passed as strings. Provided options override ALPACA's defaults.
+
+```bash
+--solver_logs <path>
+```
+
+Optional path (file or directory) where solver logs should be written regardless of backend. When unset, the Gurobi backend continues to honour `--gurobi_logs` while other backends remain silent unless their solver exposes its own logging options.
+
+<!-- TOC --><a name="solver-selection"></a>
+#### Solver selection
+
+ALPACA now supports multiple optimization backends:
+
+- **Gurobi backend (default):** identical to previous releases, including lexicographic multi-objective support, IIS generation, and per-objective runtime/gap metrics. Requires a valid Gurobi + `gurobipy` installation. This is the recommended way of running the software!
+- **Pyomo backend:** Allows running ALPACA with open-source solvers (SCIP, GLPK) or any other MILP solver exposed through Pyomo. This path is ideal for clusters without commercial licenses. Install the solver executable separately (for example, `conda install -c conda-forge glpk`) and then run `alpaca ... --solver pyomo --pyomo_solver glpk`.
+
+
+Practical notes:
+
+
+1. Strict gap enforcement maps to the closest option supported by the selected solver (e.g., `ratioGap=0` for CBC). Some solvers may ignore unknown options; ALPACA will still run but you should consult the solver logs if reproducibility is critical.
+2. Selecting `scip` or `scipampl` automatically raises Pyomo's `ampl_command_timeout` to 10 seconds to prevent slow `scip --version` checks from failing availability detection. You can still override this (or any other) solver parameter through `--pyomo_solver_options`.
+3. Objective-specific metrics (`gurobi_time_*`, `gurobi_gap_*`) and IIS reports are only available when the Gurobi backend is active. Pyomo runs populate the standard columns (`CI_score`, `D_score`, `complexity`, etc.) but leave Gurobi-specific columns at `-1` if requested via `--extra_columns`.
+4. To compare solvers, run the same input twice, e.g. `alpaca run ... --solver gurobi` and `alpaca run ... --solver pyomo --pyomo_solver cbc`, and diff the resulting `optimal_*.csv` files.
+
+#### Known issues:
+
+1. `cbc` and `HiGHS` solvers fail in complex cases and in simple cases. Use `scip` or `glpk` instead.
+2. Solver-native logs (via --solver_logs option) currently work only for Gurobi.
+3. Most solver metrics work only for Gurobi.
+
