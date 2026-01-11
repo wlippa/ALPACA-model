@@ -466,15 +466,15 @@ def process_elbow_increase_reports(dirpath: str, delete: bool = False, outpath: 
 
 
 def process_run_summary_reports(dirpath: str, delete: bool = False, outpath: Optional[str] = None) -> pd.DataFrame:
-    """Combine segment-level run_summary reports into a single file.
-    
+    """Combine segment-level run gap summary reports into a single file.
+
     Only includes segments with non-zero gap (non-optimal solutions).
     Reports gap value and reason (time_limit, gap_tolerance, or other).
     """
-    pattern = os.path.join(dirpath, "*_run_summary.csv")
+    pattern = os.path.join(dirpath, "*_run_gap_summary.csv")
     files = sorted(glob.glob(pattern))
     if outpath is None:
-        outpath = os.path.join(dirpath, "run_summary.csv")
+        outpath = os.path.join(dirpath, "run_gap_summary.csv")
     
     # Concatenate all segment reports
     if not files:
@@ -498,8 +498,12 @@ def process_run_summary_reports(dirpath: str, delete: bool = False, outpath: Opt
                 'tumour_id', 'segment', 'max_gap', 'gap_reason', 
                 'runtime', 'optimal_complexity', 'strict_gap_enabled'
             ])
-    
-    combined_df.to_csv(outpath, index=False)
+
+    if combined_df.empty:
+        message = ["All segments reached optimality; no gaps to report"]
+        pd.DataFrame([message]).to_csv(outpath, index=False, header=False)
+    else:
+        combined_df.to_csv(outpath, index=False)
     
     if delete and files:
         for fp in files:

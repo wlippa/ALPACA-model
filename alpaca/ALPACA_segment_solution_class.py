@@ -9,7 +9,7 @@ from scipy.stats import norm
 import typing
 from typing import Optional, Dict, Any
 import time
-from alpaca.ALPACA_model_class import Model
+from alpaca.solvers import ModelInputs, create_solver_backend
 from alpaca.utils import read_tree_json
 import logging
 try:
@@ -381,7 +381,15 @@ class SegmentSolution:
         self.config: Dict[str, Any] = config
         self.metrics: Dict[str, list] = {
             name: []
-            for name in ["D_scores", "solutions", "run_time", "models", "complexity", "gap_status"]
+            for name in [
+                "D_scores",
+                "solutions",
+                "run_time",
+                "models",
+                "complexity",
+                "gap_status",
+                "time_limits",
+            ]
         }
         self.no_change_in_complexity: bool = False
         self.no_change_in_D_score: bool = False
@@ -432,6 +440,14 @@ class SegmentSolution:
         validate_inputs(
             it=self.input_table, cpt=self.cp_table, cit=self.ci_table, t=self.tree
         )
+        self.solver_name = self.config["model_config"].get("solver", "gurobi")
+        self.model_inputs = ModelInputs(
+            segment=self.segment,
+            ci_table=self.ci_table,
+            fractional_copy_number_table=self.input_table,
+            tree=self.tree,
+            clone_proportions=self.cp_table,
+        )
         self.get_monoclonal_samples_report()
         #
         print(datetime.now())
@@ -441,45 +457,43 @@ class SegmentSolution:
         print("input table:")
         print(self.input_table)
 
-    def get_model_metrics(self, model_iteration):
-        self.metrics["D_scores"].append(model_iteration.solution.D_score.iloc[0])
-        self.metrics["solutions"].append(model_iteration.solution)
-        self.metrics["run_time"].append(model_iteration.model.Runtime)
-        self.metrics["models"].append(model_iteration.model)
-        self.metrics["complexity"].append(model_iteration.solution.complexity.iloc[0])
-        # Store gap status for run_summary report
-        if hasattr(model_iteration, "gap_status"):
-            self.metrics["gap_status"].append(model_iteration.gap_status)
-        else:
-            self.metrics["gap_status"].append({
-                "max_gap": -1,
-                "gap_reason": "unknown",
-                "runtime": -1,
-                "status": -1,
-            })
+    def get_model_metrics(self, solver_result):
+        solution_df = solver_result.solution
+        self.metrics["D_scores"].append(solution_df.D_score.iloc[0])
+        self.metrics["solutions"].append(solution_df)
+        self.metrics["run_time"].append(solver_result.runtime)
+        self.metrics["models"].append(solver_result.raw_model)
+        self.metrics["complexity"].append(solution_df.complexity.iloc[0])
+        self.metrics["time_limits"].append(self.config["model_config"].get("time_limit", 60))
+        gap_status = solver_result.gap_status or {
+            "max_gap": -1,
+            "gap_reason": "unknown",
+            "runtime": solver_result.runtime or -1,
+            "status": -1,
+        }
+        self.metrics["gap_status"].append(gap_status)
 
     def run_model(self, allowed_complexity):
-        allowed_complexity = {"allowed_tree_complexity": allowed_complexity}
-        model_iteration = Model(
-            segment=self.segment,
-            ci_table=self.ci_table,
-            fractional_copy_number_table=self.input_table,
-            tree=self.tree,
-            clone_proportions=self.cp_table,
-            **{**self.config["model_config"], **allowed_complexity},
-        )
-        model_iteration.model.optimize()
-        model_iteration.get_output()
+        backend_config = {**self.config["model_config"], "allowed_tree_complexity": allowed_complexity}
+        solver_name = backend_config.get("solver", "gurobi")
+        solver_logs = backend_config.get("solver_logs")
+        if solver_name == "gurobi" and solver_logs and not backend_config.get("gurobi_logs"):
+            backend_config["gurobi_logs"] = solver_logs
+        backend = create_solver_backend(solver_name, self.model_inputs, backend_config)
+        solver_result = backend.solve(allowed_complexity=allowed_complexity)
         if self.missing_clones_inherit_from_children_flag:
-            model_iteration.solution = missing_clones_inherit_from_children(
-                model_iteration.solution, self.tree, self.cp_table
+            solver_result.solution = missing_clones_inherit_from_children(
+                solver_result.solution, self.tree, self.cp_table
             )
-        self.get_model_metrics(model_iteration)
+        self.get_model_metrics(solver_result)
 
     def stop_conditions_check(self, oft):
         optimization_time = self.metrics["run_time"][-1]
+        time_limit = self.metrics["time_limits"][-1] if self.metrics["time_limits"] else None
         slow_iteration = (
-            optimization_time >= self.metrics["models"][-1].params.TimeLimit
+            optimization_time is not None
+            and time_limit is not None
+            and optimization_time >= time_limit
         )
         no_improvement_in_D_score = (
             sum(abs(np.diff(self.metrics["D_scores"])) < oft) > 3
@@ -742,20 +756,19 @@ class SegmentSolution:
         as it can interfere with how kneed finds the elbow.
         """
         try:
-            # instantiate Model with same config but disable tree complexity enforcement
             model_kwargs = {**self.config.get("model_config", {}), "enforce_tree_complexity": False}
-            # ensure we do not change allowed_tree_complexity here; we let model compute unconstrained optimum
-            M = Model(
-                segment=self.segment,
-                ci_table=self.ci_table,
-                fractional_copy_number_table=self.input_table,
-                tree=self.tree,
-                clone_proportions=self.cp_table,
-                **model_kwargs,
+            # ensure we do not change allowed_tree_complexity here and let model compute unconstrained optimum
+            backend = create_solver_backend(
+                model_kwargs.get("solver", "gurobi"),
+                self.model_inputs,
+                model_kwargs,
             )
-            M.model.optimize()
-            M.get_output()
-            sol = M.solution
+            unconstrained_complexity = model_kwargs.get(
+                "allowed_tree_complexity",
+                self.maximum_complexity or self.config["model_config"].get("allowed_tree_complexity", 0),
+            )
+            solver_result = backend.solve(allowed_complexity=unconstrained_complexity)
+            sol = solver_result.solution
             sol = sol[sol.clone != "diploid"]
             # add tumour and segment columns if needed
             sol["tumour_id"] = self.tumour_id
@@ -805,10 +818,10 @@ class SegmentSolution:
                 "strict_gap_enabled": getattr(self, "strict_gap", True),
             }
             
-            # Save to segment-specific run_summary file
+            # Save to segment-specific run_gap_summary file
             run_summary_path = os.path.join(
                 output_dir,
-                f"{self.tumour_id}_{self.segment}_run_summary.csv",
+                f"{self.tumour_id}_{self.segment}_run_gap_summary.csv",
             )
             df = pd.DataFrame([report_entry])
             df.to_csv(run_summary_path, index=False)
@@ -956,7 +969,7 @@ class SegmentSolution:
             )
             self.elbow_increase_report.to_csv(elbow_report_path, index=False)
         
-        # Save run summary report with gap status
+        # Save run gap summary report with gap status
         self._save_run_summary_report(output_dir)
         
         if os.path.exists(output_path):

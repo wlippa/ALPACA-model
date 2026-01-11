@@ -169,7 +169,7 @@ def run_alpaca():
             output_dir = SS.config["preprocessing_config"]["output_directory"]
             process_ci_reports(output_dir, delete=True, outpath=output_dir + "/ci_modified_report.csv")
             process_monoclonal_reports(output_dir, delete=True, outpath=output_dir + "/monoclonal_samples_report.csv")
-            process_run_summary_reports(output_dir, delete=True, outpath=output_dir + "/run_summary.csv")
+            process_run_summary_reports(output_dir, delete=True, outpath=output_dir + "/run_gap_summary.csv")
             logger.info(
                 f"""Analysis completed successfully. Output saved to: {output_dir}"""
             )
