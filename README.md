@@ -37,6 +37,7 @@ Repository containing core ALPACA code
       + [Generating ALPACA input from BAM files](#generating-alpaca-input-from-bam-files)
       + [Running ALPACA using CONIPHER and Refphase outputs](#running-alpaca-using-conipher-and-refphase-outputs)
       + [Running ALPACA](#running-alpaca-1)
+      + [Nextflow wrapper](#[nextflow-wrapper])
       + [Available options](#available-options)
          - [Solver selection](#solver-selection)
 
@@ -401,6 +402,14 @@ ALPACA-model/examples/example_cohort/output/LTX0000-Tumour1
 |LTX0000-Tumour1|2_41509_27282430|clone14|1|2|clone1|1|2|0|0|
 |LTX0000-Tumour1|2_41509_27282430|clone9|1|1|clone2|1|1|0|0|
 |LTX0000-Tumour1|2_41509_27282430|clone15|3|1|clone11|2|1|1|0|
+
+<!-- TOC --><a name="nextflow-wrapper"></a>
+
+### Nextflow wrapper
+Nextflow wrapper to facilitate parallel processing on HPC for large cohorts is available at:
+
+https://github.com/McGranahanLab/ALPACA-nextflow
+
 
 <!-- TOC --><a name="available-options"></a>
 
