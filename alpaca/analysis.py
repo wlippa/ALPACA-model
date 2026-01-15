@@ -26,6 +26,14 @@ def get_parent_copynumbers(
     parents_df.rename(columns={"pred_CN_A": "parent_pred_cpnA"}, inplace=True)
     parents_df.rename(columns={"pred_CN_B": "parent_pred_cpnB"}, inplace=True)
     parents_df.rename(columns={"clone": "parent"}, inplace=True)
+    # add diploid clone so that delta for MRCA can also be calcualted
+    diploid_frame = pd.DataFrame({
+        "parent": ["diploid"] * tumour_df["segment"].nunique(),
+        "segment": tumour_df["segment"].unique(),
+        "parent_pred_cpnA": [1] * tumour_df["segment"].nunique(),
+        "parent_pred_cpnB": [1] * tumour_df["segment"].nunique(),
+    })
+    parents_df = pd.concat([parents_df, diploid_frame], ignore_index=True)
     output_with_parent_clones_copynumbers = output_with_parent_clones.merge(
         parents_df, left_on=["parent", "segment"], right_on=["parent", "segment"]
     )
