@@ -570,4 +570,6 @@ Practical notes:
 1. `cbc` and `HiGHS` solvers fail in complex cases and in simple cases. Use `scip` or `glpk` instead.
 2. Solver-native logs (via --solver_logs option) currently work only for Gurobi.
 3. Most solver metrics work only for Gurobi.
+4. On simulated dataset, SCIP and GLPK produce results only slightly worse to Gurobi (GLPK slightly better than SCIP), but both fail for a small number of segments (GLPK failed on 14 out of 90220 segment, SCIP failed on 490 out of 90220 segments). 
+
 
