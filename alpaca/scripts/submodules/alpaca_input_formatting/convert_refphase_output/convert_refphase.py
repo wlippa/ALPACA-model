@@ -1,6 +1,7 @@
 import pandas as pd
 import argparse
 import os
+import re
 from functions import calculate_confidence_intervals
 
 # arguments
@@ -108,6 +109,23 @@ refphase_snps = refphase_snps.rename(
         "patient_tumour": "tumour_id",
     }
 )
+
+
+# sanitize chromosome names:
+def _sanitize_chr_names(df):
+    if pd.api.types.is_numeric_dtype(df["chr"]):
+        return
+    # Extract the actual chromosome identifier (letters/numbers only, ignoring prefixes)
+    df["chr"] = df["chr"].str.extract(r'([0-9]+|[XYM][Tt]?)', flags=re.IGNORECASE)[0]
+    # Map to numbers
+    chr_map = {'X': '23', 'x': '23', 'Y': '24', 'y': '24', 
+               'MT': '25', 'Mt': '25', 'mt': '25', 'M': '25', 'm': '25'}
+    df["chr"] = df["chr"].replace(chr_map)
+    df["chr"] = pd.to_numeric(df["chr"], errors="coerce")
+
+
+_sanitize_chr_names(refphase_segments)
+_sanitize_chr_names(refphase_snps)
 
 # create segment column by combining chromosome, start and end:
 refphase_segments["segment"] = (
