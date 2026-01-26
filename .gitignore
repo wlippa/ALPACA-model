@@ -14,5 +14,6 @@ dev/
 examples/**/*.csv
 examples/**/*.tsv
 examples/**/*.json
+examples/**/*.ipynb
 *.log
 tests/compare_solvers/output*
