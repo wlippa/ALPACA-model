@@ -1,13 +1,20 @@
 import os
 import subprocess
 import sys
+from pathlib import Path
 from importlib.resources import files
 from alpaca.analysis import get_cn_change_to_ancestor
 from alpaca.analysis import calculate_ccd
 import argparse
 from datetime import datetime
 import logging
-from alpaca.utils import create_logger, save_dataframe_to_csv
+from alpaca.utils import create_logger, save_dataframe_to_csv, SUPPORTED_GENOME_BUILDS
+from alpaca.plotting import (
+    export_plot_outputs,
+    _DEFAULT_HEATMAP_PALETTE,
+    _SUPPORTED_HEATMAP_CHOICES,
+    _DEFAULT_GENOME_BUILD,
+)
 
 
 def input_conversion():
@@ -164,3 +171,130 @@ def run_calculate_ccd():
     except Exception as e:
         logger.exception(f"An error occurred during analysis: {e}")
         exit(1)
+
+
+def run_plot_tumour():
+    """CLI wrapper for generating plots/notebooks once ALPACA outputs exist."""
+
+    logger = create_logger(name="plotting", log_dir="logs")
+    parser = argparse.ArgumentParser(
+        description="Generate ALPACA heatmap plots (PDF or notebook) from existing outputs."
+    )
+    parser.add_argument(
+        "command",
+        choices=["plot-tumour"],
+        help="Command to run",
+    )
+    parser.add_argument(
+        "--input_directory",
+        required=True,
+        help="Tumour input directory used during the original ALPACA run.",
+    )
+    parser.add_argument(
+        "--output_directory",
+        required=True,
+        help="Existing ALPACA output directory containing ALPACA_output*.csv files.",
+    )
+    parser.add_argument(
+        "--alpaca-output-path",
+        dest="alpaca_output_path",
+        default=None,
+        help="Optional explicit path to the ALPACA_output CSV (defaults to autodetect in the output directory).",
+    )
+    parser.add_argument(
+        "--chr-table",
+        dest="chr_table",
+        default=None,
+        help="Optional path to a chromosome length table (CSV/TSV).",
+    )
+    parser.add_argument(
+        "--mutation-table",
+        dest="mutation_table",
+        default=None,
+        help="Optional path to a driver mutation table (CSV/TSV).",
+    )
+    parser.add_argument(
+        "--plot-output-mode",
+        dest="plot_output_mode",
+        choices=["pdf", "notebook", "none"],
+        default="notebook",
+        help="Choose 'pdf' for static figures, 'notebook' (default), or 'none' to skip generation.",
+    )
+    parser.add_argument(
+        "--notebook-name",
+        dest="notebook_name",
+        default=None,
+        help="Optional filename for the generated notebook (defaults to <tumour_id>_plots.ipynb).",
+    )
+    parser.add_argument(
+        "--heatmap-palette",
+        dest="heatmap_palette",
+        default=_DEFAULT_HEATMAP_PALETTE,
+        choices=_SUPPORTED_HEATMAP_CHOICES,
+        help="Colour palette for copy-number gains (>=2 states).",
+    )
+    parser.add_argument(
+        "--genome-build",
+        dest="genome_build",
+        default=_DEFAULT_GENOME_BUILD,
+        choices=SUPPORTED_GENOME_BUILDS,
+        help="Reference genome build for chromosome lengths (default: hg19).",
+    )
+
+    args = parser.parse_args()
+
+    def _resolve_dir(path_str, label):
+        path = Path(path_str).expanduser().resolve()
+        if not path.exists() or not path.is_dir():
+            logger.error(f"{label} not found or is not a directory: {path}")
+            sys.exit(1)
+        return path
+
+    def _resolve_file(path_str, label):
+        if path_str is None:
+            return None
+        path = Path(path_str).expanduser().resolve()
+        if not path.exists():
+            logger.error(f"{label} not found: {path}")
+            sys.exit(1)
+        return path
+
+    input_dir = _resolve_dir(args.input_directory, "Input directory")
+    output_dir = _resolve_dir(args.output_directory, "Output directory")
+    alpaca_output_path = _resolve_file(
+        args.alpaca_output_path, "ALPACA output CSV"
+    )
+    chr_table_path = _resolve_file(args.chr_table, "Chromosome table")
+    mutation_table_path = _resolve_file(args.mutation_table, "Mutation table")
+
+    logger.info(
+        "Generating %s plot artefacts for %s",
+        args.plot_output_mode,
+        output_dir,
+    )
+
+    try:
+        generated = export_plot_outputs(
+            mode=args.plot_output_mode,
+            tumour_input_dir=input_dir,
+            tumour_output_dir=output_dir,
+            alpaca_output_path=alpaca_output_path,
+            chr_table_override=chr_table_path,
+            mutation_table_override=mutation_table_path,
+            notebook_name=args.notebook_name,
+            heatmap_palette=args.heatmap_palette,
+            genome_build=args.genome_build,
+        )
+    except Exception as exc:
+        logger.exception(f"Failed to generate plots: {exc}")
+        sys.exit(1)
+
+    if not generated:
+        logger.info(
+            "Plot generation complete. No artefacts created (mode=%s)",
+            args.plot_output_mode,
+        )
+    else:
+        for artifact in generated:
+            logger.info(f"Created {artifact}")
+        logger.info("Plot generation complete.")

@@ -306,9 +306,12 @@ Once input is generated, ALPACA can be run with:
 input_tumour_directory="examples/example_cohort/input/${tumour_id}"
 output_directory="examples/example_cohort/output/${tumour_id}"
 alpaca run \
-    --input_tumour_directory "${input_tumour_directory}" \
-    --output_directory "${output_directory}"
+   --input_tumour_directory "${input_tumour_directory}" \
+   --output_directory "${output_directory}" \
+   --genome-build hg19
 ```
+
+Note: genome-build is only required for plotting, not for the copy-number inferenece.
 
 Your input_tumour_directory should look like this:
 
@@ -402,6 +405,22 @@ ALPACA-model/examples/example_cohort/output/LTX0000-Tumour1
 |LTX0000-Tumour1|2_41509_27282430|clone14|1|2|clone1|1|2|0|0|
 |LTX0000-Tumour1|2_41509_27282430|clone9|1|1|clone2|1|1|0|0|
 |LTX0000-Tumour1|2_41509_27282430|clone15|3|1|clone11|2|1|1|0|
+
+#### Plotting outputs and genome builds
+
+Heatmap visualisations rely on chromosome length tables that match the genome build used to generate your tumour segments. ALPACA now downloads these tables from UCSC automatically and caches them under `~/.cache/alpaca/genomes`. Supply `--genome-build {hg19|hg38}` whenever plotting is enabled (the flag defaults to `hg19` for backwards compatibility, but you should set `--genome-build hg38` for GRCh38 inputs).
+
+If you disabled plotting during `alpaca run` (for example with `--plot_output_mode none`), you can regenerate notebooks or PDFs later via:
+
+```bash
+alpaca plot-tumour \
+   --input_directory "${input_tumour_directory}" \
+   --output_directory "${output_directory}" \
+   --plot-output-mode pdf \
+   --genome-build hg38
+```
+
+The `plot-tumour` helper accepts the same `--chr-table` / `--mutation-table` overrides as the main run, so you can point it at a pre-downloaded chromosome table when working offline.
 
 <!-- TOC --><a name="nextflow-wrapper"></a>
 
@@ -547,6 +566,18 @@ Optional list of additional parameters forwarded directly to the selected Pyomo 
 ```
 
 Optional path (file or directory) where solver logs should be written regardless of backend. When unset, the Gurobi backend continues to honour `--gurobi_logs` while other backends remain silent unless their solver exposes its own logging options.
+
+```bash
+--plot_output_mode <notebook|pdf|none>
+```
+
+Control how ALPACA emits the final visualisations once segment optimisation finishes (default: `notebook`).
+
+- `notebook`: writes `<tumour_id>_plots.ipynb` inside the tumour output directory. The notebook mirrors `dev/plotting/test_plotting.ipynb` and contains five cells (imports, config, heatmap A, heatmap B, CN changes) so you can explore interactive Plotly figures directly in VS Code or Jupyter.
+- `pdf`: generates the static PDFs that older releases produced (`<tumour_id>_A_heatmap.pdf`, `<tumour_id>_B_heatmap.pdf`, `<tumour_id>_cn_changes_per_clone.pdf`).
+- `none`: skips plotting entirely, which can be useful on headless servers that lack Plotly/Kaleido support or if you only need CSV outputs.
+
+The option applies both to `alpaca run ...` (plots are produced automatically alongside `cn_change_to_ancestor.csv` and other summaries) and to `python -m alpaca.plotting ...` when you just want to re-render artefacts for an existing tumour directory.
 
 <!-- TOC --><a name="solver-selection"></a>
 #### Solver selection

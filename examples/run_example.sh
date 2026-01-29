@@ -12,7 +12,7 @@ refphase_rData="${input_tumour_directory}/${tumour_id}-refphase-results.RData"
 CONIPHER_tree_object="${input_tumour_directory}/${tumour_id}.tree.RDS"
 conversion_output_dir="${input_tumour_directory}"
 CONIPHER_tree_index=1
-heterozygous_SNPs_threshold=5
+heterozygous_SNPs_threshold=0
 
 alpaca input-conversion \
  --tumour_id $tumour_id \
@@ -27,7 +27,9 @@ alpaca input-conversion \
 # run alpaca:
 alpaca run \
     --input_tumour_directory "${input_tumour_directory}" \
-    --output_directory "${output_directory}"
+    --output_directory "${output_directory}" \
+    --plot_output_mode pdf \
+    --genome-build hg19
 
 # get cn change to ancestor:
 alpaca ancestor-delta \
@@ -39,3 +41,12 @@ alpaca ancestor-delta \
 alpaca ccd \
     --output_directory "${output_directory}" \
     --alpaca_output_path "${output_directory}/ALPACA_output_${tumour_id}.csv"
+
+alpaca plot-tumour \
+    --input_directory "${input_tumour_directory}" \
+    --output_directory "${output_directory}" \
+    --alpaca-output-path "${output_directory}/ALPACA_output_${tumour_id}.csv" \
+    --plot-output-mode notebook \
+    --notebook-name "example_notebook" \
+    --heatmap-palette "magma" \
+    --genome-build hg19

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+from pathlib import Path
 
 try:
     from importlib.metadata import version, PackageNotFoundError
@@ -48,6 +49,11 @@ def main():
 
         scripts.run_calculate_ccd()
         return
+    elif command == "plot-tumour":
+        import alpaca.scripts as scripts
+
+        scripts.run_plot_tumour()
+        return
     elif command == "run":
         run_alpaca()
         return
@@ -75,6 +81,7 @@ def run_alpaca():
     )
     from alpaca.make_configuration import make_config
     from alpaca.analysis import get_cn_change_to_ancestor
+    from alpaca.plotting import export_plot_outputs
 
     # Configure logging
     logger = create_logger(name="ALPACA", log_dir="logs")
@@ -113,6 +120,9 @@ def run_alpaca():
     # if 'tumour', expect single file with all the segments and output a single file
     # if 'segment' expect array of files to segment files (can be from different tumours) and create separate outputs for each segment
     config, run_mode = set_run_mode(config)
+    # if we run in 'segment' mode, disable plotting by default:
+    if run_mode == "segment":
+        config["preprocessing_config"]["plot_output_mode"] = "none"
     logger.info("-------------------------------------------------")
     logger.info("Running ALPACA with the following parameters:")
     # print value of each parameter:
@@ -170,6 +180,27 @@ def run_alpaca():
             process_ci_reports(output_dir, delete=True, outpath=output_dir + "/ci_modified_report.csv")
             process_monoclonal_reports(output_dir, delete=True, outpath=output_dir + "/monoclonal_samples_report.csv")
             process_run_summary_reports(output_dir, delete=True, outpath=output_dir + "/run_gap_summary.csv")
+            plot_mode = config["preprocessing_config"].get("plot_output_mode", "notebook")
+            heatmap_palette = config["preprocessing_config"].get("heatmap_palette")
+            genome_build = config["preprocessing_config"].get("genome_build", "hg19")
+            if plot_mode != "none":
+                tumour_input_dir = config["preprocessing_config"].get("input_tumour_directory") or SS.tumour_dir
+                try:
+                    export_plot_outputs(
+                        mode=plot_mode,
+                        tumour_input_dir=Path(tumour_input_dir),
+                        tumour_output_dir=Path(output_dir),
+                        alpaca_output_path=Path(concatenated_output_path),
+                        heatmap_palette=heatmap_palette,
+                        genome_build=genome_build,
+                    )
+                    logger.info(
+                        f"Generated {plot_mode} plot artefacts in {output_dir}"
+                    )
+                except Exception as plot_error:
+                    logger.error(f"Failed to generate plots ({plot_mode}): {plot_error}")
+                    if debug:
+                        raise
             logger.info(
                 f"""Analysis completed successfully. Output saved to: {output_dir}"""
             )
