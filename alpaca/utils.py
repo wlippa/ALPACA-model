@@ -9,6 +9,71 @@ from typing import Optional
 import glob
 import sys
 import csv
+import io
+import urllib.request
+
+
+_GENOME_LENGTH_SOURCES = {
+    "hg19": "https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/hg19.chrom.sizes",
+    "hg38": "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.sizes",
+}
+_CANONICAL_CHROMOSOMES = [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY"]
+_DEFAULT_GENOME_CACHE = Path.home() / ".cache" / "alpaca" / "genomes"
+SUPPORTED_GENOME_BUILDS = tuple(sorted(_GENOME_LENGTH_SOURCES.keys()))
+
+
+def ensure_chr_table(genome_build: str, cache_dir: Optional[str | Path] = None) -> Path:
+    """Download (if needed) and cache chromosome lengths for a genome build.
+
+    Returns the path to a CSV with columns ['chr', 'len'] restricted to
+    chr1-22, chrX, chrY. Data are sourced from UCSC chrom.sizes files and
+    cached under ~/.cache/alpaca/genomes by default.
+    """
+
+    build = (genome_build or "").lower()
+    if build not in _GENOME_LENGTH_SOURCES:
+        raise ValueError(
+            f"Unsupported genome build '{genome_build}'. Choose one of {sorted(_GENOME_LENGTH_SOURCES)}."
+        )
+
+    cache_root = Path(cache_dir).expanduser().resolve() if cache_dir else _DEFAULT_GENOME_CACHE
+    cache_root.mkdir(parents=True, exist_ok=True)
+    cache_file = cache_root / f"{build}_chrom_lengths.csv"
+    if cache_file.exists():
+        return cache_file
+
+    url = _GENOME_LENGTH_SOURCES[build]
+    try:
+        with urllib.request.urlopen(url) as response:
+            payload = response.read().decode("utf-8")
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to download chromosome sizes for {genome_build} from {url}."
+        ) from exc
+
+    df = pd.read_csv(
+        io.StringIO(payload),
+        sep="\t",
+        header=None,
+        usecols=[0, 1],
+        names=["chr", "len"],
+        dtype={"chr": str, "len": "int64"},
+    )
+    df = df[df["chr"].isin(_CANONICAL_CHROMOSOMES)].copy()
+    if df.empty:
+        raise ValueError(
+            f"Downloaded chromosome table for {genome_build} did not contain canonical chromosomes."
+        )
+    missing = [chrom for chrom in _CANONICAL_CHROMOSOMES if chrom not in df["chr"].values]
+    if missing:
+        raise ValueError(
+            f"Chromosome table for {genome_build} is missing entries: {', '.join(missing)}."
+        )
+
+    df["chr"] = pd.Categorical(df["chr"], categories=_CANONICAL_CHROMOSOMES, ordered=True)
+    df = df.sort_values("chr")
+    df.to_csv(cache_file, index=False)
+    return cache_file
 
 
 def show_version():
@@ -34,6 +99,8 @@ def show_help():
     print("  run                  Run ALPACA")
     print("  input-conversion     Run input conversion")
     print("  ccd                  Calculate clone copy number diversity")
+    print("  ancestor-delta       Compute copy-number changes to each ancestor")
+    print("  plot-tumour          Generate notebooks or PDFs once results exist")
     print("")
 
 

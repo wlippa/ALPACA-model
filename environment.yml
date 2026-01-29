@@ -19,3 +19,10 @@ dependencies:
   - bioconductor-genomicranges
   - r-jsonlite
   - r-optparse
+  - seaborn
+  - plotly
+  - networkx
+  - ipykernel
+  - nbformat
+  - python-kaleido
+  - urllib3

@@ -3,6 +3,7 @@ import ast
 import os
 import sys
 from alpaca.ALPACA_model_class import Model as ALPACA_Model
+from alpaca.utils import SUPPORTED_GENOME_BUILDS
 
 """
 ALPACA can operate in two modes: 'tumour' and 'segment'.
@@ -68,6 +69,20 @@ def get_parser():
         type=str,
         default="./",
         help="Directory where output data is stored. Defaults to current directory.",
+    )
+    parser.add_argument(
+        "--plot_output_mode",
+        type=str,
+        choices=["pdf", "notebook", "none"],
+        default="notebook",
+        help="Control how ALPACA emits visualisations after a run: 'pdf' saves static PDFs, 'notebook' (default) writes an interactive Jupyter notebook, 'none' skips plotting.",
+    )
+    parser.add_argument(
+        "--genome-build",
+        type=str,
+        choices=SUPPORTED_GENOME_BUILDS,
+        default="hg19",
+        help="Reference genome build for chromosome lengths when plotting (default: hg19).",
     )
     parser.add_argument(
         "--gurobi_logs",
@@ -331,6 +346,8 @@ def make_config(args_in):
         "output_directory": args.output_directory,
         "min_ci": args.min_ci,
         "extra_columns": args.extra_columns,
+        "plot_output_mode": args.plot_output_mode,
+        "genome_build": args.genome_build,
     }
     if args.mode == "tumour":
         preprocessing_config["input_tumour_directory"] = args.input_tumour_directory
