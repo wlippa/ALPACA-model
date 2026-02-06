@@ -96,7 +96,7 @@ def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalcu
     cis = {"A": {}, "B": {}}
     cn_frac = {}
     refphase_updated_cns = seg_sample_df.was_cn_updated.unique()[0]
-    refphase_reference_segment = seg_sample_df.is_reference_segment.unique()[0]
+    refphase_reference_segment = seg_sample_df.is_reference.unique()[0]
     for allele in ["A", "B"]:
         bootstrap_values = []
         for i in range(n_bootstrap):
@@ -111,7 +111,6 @@ def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalcu
         lower_CI = max(lower_bound, 0)
         upper_CI = max(upper_bound, 0.001)
         cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}
-        
         # We belive that current implementation of Refphase contains a bug and segments marked as 'is_reference' should also be marked as 'was_cn_updated'.
         # Therefore, we include an option here to fix this and recalculate reference segment copy number without rounding:
         if refphase_reference_segment:
