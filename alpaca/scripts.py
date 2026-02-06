@@ -248,7 +248,7 @@ def run_plot_tumour():
         help="Existing ALPACA output directory containing ALPACA_output*.csv files.",
     )
     parser.add_argument(
-        "--alpaca-output-path",
+        "--alpaca_output_path",
         dest="alpaca_output_path",
         default=None,
         help="Optional explicit path to the ALPACA_output CSV (defaults to autodetect in the output directory).",
@@ -266,27 +266,27 @@ def run_plot_tumour():
         help="Optional path to a driver mutation table (CSV/TSV).",
     )
     parser.add_argument(
-        "--plot-output-mode",
+        "--plot_output_mode",
         dest="plot_output_mode",
         choices=["pdf", "notebook", "none"],
         default="notebook",
         help="Choose 'pdf' for static figures, 'notebook' (default), or 'none' to skip generation.",
     )
     parser.add_argument(
-        "--notebook-name",
+        "--notebook_name",
         dest="notebook_name",
         default=None,
         help="Optional filename for the generated notebook (defaults to <tumour_id>_plots.ipynb).",
     )
     parser.add_argument(
-        "--heatmap-palette",
+        "--heatmap_palette",
         dest="heatmap_palette",
         default=_DEFAULT_HEATMAP_PALETTE,
         choices=_SUPPORTED_HEATMAP_CHOICES,
         help="Colour palette for copy-number gains (>=2 states).",
     )
     parser.add_argument(
-        "--genome-build",
+        "--genome_build",
         dest="genome_build",
         default=_DEFAULT_GENOME_BUILD,
         choices=SUPPORTED_GENOME_BUILDS,

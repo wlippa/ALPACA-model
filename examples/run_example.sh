@@ -30,7 +30,7 @@ alpaca run \
     --input_tumour_directory "${input_tumour_directory}" \
     --output_directory "${output_directory}" \
     --plot_output_mode pdf \
-    --genome-build hg19
+    --genome_build hg19
 
 # get cn change to ancestor:
 alpaca ancestor-delta \
@@ -52,8 +52,8 @@ alpaca wgd \
 alpaca plot-tumour \
     --input_directory "${input_tumour_directory}" \
     --output_directory "${output_directory}" \
-    --alpaca-output-path "${output_directory}/ALPACA_output_${tumour_id}.csv" \
-    --plot-output-mode notebook \
-    --notebook-name "example_notebook" \
-    --heatmap-palette "magma" \
-    --genome-build hg19
+    --alpaca_output_path "${output_directory}/ALPACA_output_${tumour_id}.csv" \
+    --plot_output_mode notebook \
+    --notebook_name "example_notebook" \
+    --heatmap_palette "magma" \
+    --genome_build hg19

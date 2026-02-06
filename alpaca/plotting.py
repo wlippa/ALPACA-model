@@ -1608,7 +1608,7 @@ def main():
         help="Optional path to a driver mutation table (CSV/TSV).",
     )
     parser.add_argument(
-        "--plot-output-mode",
+        "--plot_output_mode",
         dest="plot_output_mode",
         type=str,
         choices=["pdf", "notebook", "none"],
@@ -1616,7 +1616,7 @@ def main():
         help="Choose whether to save PDF figures, write an interactive notebook (default), or skip plotting.",
     )
     parser.add_argument(
-        "--heatmap-palette",
+        "--heatmap_palette",
         dest="heatmap_palette",
         type=str,
         default=_DEFAULT_HEATMAP_PALETTE,
@@ -1628,7 +1628,7 @@ def main():
         ),
     )
     parser.add_argument(
-        "--genome-build",
+        "--genome_build",
         dest="genome_build",
         type=str,
         default=_DEFAULT_GENOME_BUILD,

@@ -78,7 +78,7 @@ def get_parser():
         help="Control how ALPACA emits visualisations after a run: 'pdf' saves static PDFs, 'notebook' (default) writes an interactive Jupyter notebook, 'none' skips plotting.",
     )
     parser.add_argument(
-        "--genome-build",
+        "--genome_build",
         type=str,
         choices=SUPPORTED_GENOME_BUILDS,
         default="hg19",
