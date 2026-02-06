@@ -210,9 +210,9 @@ def calculate_wgd_ratios(results_path: str, tree_path: str) -> pd.DataFrame:
         )
         return pd.Series(
             {
-                "tumour_id": group["tumour_id"].iat[0],
-                "clone": group["clone"].iat[0],
-                "parent": group["parent"].iat[0],
+                "tumour_id": group.name[0],
+                "clone": group.name[1],
+                "parent": group.name[2],
                 "ratio_A": ratio_a,
                 "ratio_B": ratio_b,
                 "ratio_total": ratio_total,
