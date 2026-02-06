@@ -42,14 +42,13 @@ parser.add_argument(
     default=5,
     help="Minimum number of heterozygous SNPs to consider a segment. Segments with fewer heterozygous SNPs will be discarded.",
 )
+parser.add_argument("--ci_value", type=float, help="Confidence interval value.")
+parser.add_argument("--n_bootstrap", type=int, help="Number of bootstrap samples.")
 parser.add_argument(
-    "--ci_value", type=float, help="Confidence interval value."
-)
-parser.add_argument(
-    "--n_bootstrap", type=int, help="Number of bootstrap samples."
-)
-parser.add_argument(
-    "--recalculate_not_updated_cns", type=int, choices=[0, 1], default=0,
+    "--recalculate_not_updated_cns",
+    type=int,
+    choices=[0, 1],
+    default=0,
     help="Refphase updates copy-numbers for segments where allelic imbalance is detected. \
         The remaining segments inherit the copy-number of their parent ASCAT segment. \
         When calculating confidence intervals for these non-updated segments, two behaviours are possible. \
@@ -57,15 +56,28 @@ parser.add_argument(
         assigned  to the Refphase segment in questions. Otherwise, we will first center the SNPs around the original ASCAT copy-numbers, and then calculate\
         confidence intervals. The rationale for such behaviour is that in the second case, there is not enough evidence to divert from the null\
         (i.e. ASCAT solution), but the uncertainty in the copy-number estimate should still be captured and should be lower compared to the entire\
-        parent ASCAT segment"
+        parent ASCAT segment",
 )
 parser.add_argument(
-    "--recalculate_updated_cns", type=int, choices=[0, 1], default=0,
+    "--recalculate_updated_cns",
+    type=int,
+    choices=[0, 1],
+    default=0,
     help="Refphase updates copy-numbers for segments where allelic imbalance is detected. \
         While doing so, it uses ASCAT equations to calculate CNS based on BAF, LOG, purity, ploidy etc. \
         Since we are using the same data and equations to caclculate confidence intervals, we can also re-calculate the original copy number as well.\
         However, for many segments, such recalculated copy number differs slightly from the value provided by the refphase. If this argument is 0, \
-        instead of calculating the copy number, we will just calculate the intervals and center them around the original refphase provided value"
+        instead of calculating the copy number, we will just calculate the intervals and center them around the original refphase provided value",
+)
+
+parser.add_argument(
+    "--recalculate_reference_cns",
+    type=int,
+    choices=[0, 1],
+    default=0,
+    help="Recalculates the copy-number for segments marked as 'is_reference' True in Refphase. \
+        Default refphase behaviour is to recalculate and then round these copy numbers to nearest integers. \
+        Setting this option to '1' will trigger recalculation without the rounding, i.e. leaving the copy number for these segments in fractional state",
 )
 
 parser.add_argument(
@@ -84,6 +96,7 @@ ci_value = args.ci_value
 n_bootstrap = args.n_bootstrap
 recalculate_not_updated_cns = bool(args.recalculate_not_updated_cns)
 recalculate_updated_cns = bool(args.recalculate_updated_cns)
+recalculate_reference_cns = bool(args.recalculate_reference_cns)
 split_segments = bool(args.split_segments)
 # create output directory:
 os.makedirs(output_dir, exist_ok=True)
@@ -91,7 +104,7 @@ os.makedirs(output_dir, exist_ok=True)
 refphase_segments = pd.read_csv(args.refphase_segments, sep="\t")
 refphase_snps = pd.read_csv(args.refphase_snps, sep="\t")
 refphase_purity_ploidy = pd.read_csv(args.refphase_purity_ploidy, sep="\t")
-cp_table = pd.read_csv(args.conipher_cp_table, index_col='clone')
+cp_table = pd.read_csv(args.conipher_cp_table, index_col="clone")
 conipher_samples = cp_table.columns
 # rename columns:
 refphase_segments = refphase_segments.rename(
@@ -116,10 +129,19 @@ def _sanitize_chr_names(df):
     if pd.api.types.is_numeric_dtype(df["chr"]):
         return
     # Extract the actual chromosome identifier (letters/numbers only, ignoring prefixes)
-    df["chr"] = df["chr"].str.extract(r'([0-9]+|[XYM][Tt]?)', flags=re.IGNORECASE)[0]
+    df["chr"] = df["chr"].str.extract(r"([0-9]+|[XYM][Tt]?)", flags=re.IGNORECASE)[0]
     # Map to numbers
-    chr_map = {'X': '23', 'x': '23', 'Y': '24', 'y': '24', 
-               'MT': '25', 'Mt': '25', 'mt': '25', 'M': '25', 'm': '25'}
+    chr_map = {
+        "X": "23",
+        "x": "23",
+        "Y": "24",
+        "y": "24",
+        "MT": "25",
+        "Mt": "25",
+        "mt": "25",
+        "M": "25",
+        "m": "25",
+    }
     df["chr"] = df["chr"].replace(chr_map)
     df["chr"] = pd.to_numeric(df["chr"], errors="coerce")
 
@@ -170,27 +192,47 @@ snps_with_segments_purity_ploidy = snps_with_segments.merge(
 # estimate the confidence intervals:
 confidence_intervals = (
     snps_with_segments_purity_ploidy.groupby(["segment", "sample"])
-    .apply(calculate_confidence_intervals, ci_value=ci_value, n_bootstrap=n_bootstrap, recalculate_not_updated_cns=recalculate_not_updated_cns, recalculate_updated_cns=recalculate_updated_cns)
-    .reset_index().drop(columns=["level_2"])
+    .apply(
+        calculate_confidence_intervals,
+        ci_value=ci_value,
+        n_bootstrap=n_bootstrap,
+        recalculate_not_updated_cns=recalculate_not_updated_cns,
+        recalculate_updated_cns=recalculate_updated_cns,
+        recalculate_reference_cns=recalculate_reference_cns,
+    )
+    .reset_index()
+    .drop(columns=["level_2"])
 )
 # add 0 SNP segments if such segments not filtereted out, i.e when args.heterozygous_SNPs_threshold=0
 if args.heterozygous_SNPs_threshold == 0:
     # add 0 SNP segments if such segments not filtereted out, i.e when args.heterozygous_SNPs_threshold=0
     # for such segments, we set confidence intervals to 0.5 to reflect low certainty
     CI_span = 0.5
-    zero_snp_segments = refphase_segments[refphase_segments.heterozygous_SNP_number == 0]
+    zero_snp_segments = refphase_segments[
+        refphase_segments.heterozygous_SNP_number == 0
+    ]
     zero_snp_segments = zero_snp_segments[["segment", "sample", "cn_a", "cn_b"]]
     CI_half = CI_span / 2.0
-    zero_snp_segments['lower_CI_A'] = (zero_snp_segments['cn_a'] - CI_half).clip(lower=0)
-    zero_snp_segments['upper_CI_A'] = zero_snp_segments['cn_a'] + CI_half
-    zero_snp_segments['lower_CI_B'] = (zero_snp_segments['cn_b'] - CI_half).clip(lower=0)
-    zero_snp_segments['upper_CI_B'] = zero_snp_segments['cn_b'] + CI_half
+    zero_snp_segments["lower_CI_A"] = (zero_snp_segments["cn_a"] - CI_half).clip(
+        lower=0
+    )
+    zero_snp_segments["upper_CI_A"] = zero_snp_segments["cn_a"] + CI_half
+    zero_snp_segments["lower_CI_B"] = (zero_snp_segments["cn_b"] - CI_half).clip(
+        lower=0
+    )
+    zero_snp_segments["upper_CI_B"] = zero_snp_segments["cn_b"] + CI_half
     zero_snp_segments.rename(columns={"cn_a": "cpnA", "cn_b": "cpnB"}, inplace=True)
-    confidence_intervals = pd.concat([confidence_intervals, zero_snp_segments], ignore_index=True)
-confidence_intervals['chr'] = confidence_intervals['segment'].apply(lambda x: int(x.split('_')[0]))
-confidence_intervals['start'] = confidence_intervals['segment'].apply(lambda x: int(x.split('_')[1]))
-confidence_intervals = confidence_intervals.sort_values(by=['sample', 'chr', 'start'])
-confidence_intervals.drop(columns=['chr', 'start'], inplace=True)
+    confidence_intervals = pd.concat(
+        [confidence_intervals, zero_snp_segments], ignore_index=True
+    )
+confidence_intervals["chr"] = confidence_intervals["segment"].apply(
+    lambda x: int(x.split("_")[0])
+)
+confidence_intervals["start"] = confidence_intervals["segment"].apply(
+    lambda x: int(x.split("_")[1])
+)
+confidence_intervals = confidence_intervals.sort_values(by=["sample", "chr", "start"])
+confidence_intervals.drop(columns=["chr", "start"], inplace=True)
 ci_table = confidence_intervals.merge(refphase_segments)[
     [
         "segment",

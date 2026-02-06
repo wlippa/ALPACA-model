@@ -76,7 +76,14 @@ def calculate_cn(seg_sample_df, baf, logr_shift=0, logr_scale=1):
     return final_value
 
 
-def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalculate_not_updated_cns, recalculate_updated_cns):
+def recalculate_updated_cns(seg_sample_df):
+    """
+    Placeholder for refphase reference-segment copy-number recalculation.
+    """
+    return None
+
+
+def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalculate_not_updated_cns, recalculate_updated_cns, recalculate_reference_cns):
     baf_a = seg_sample_df.query('phasing == "a"')["baf"].mean()
     baf_b = seg_sample_df.query('phasing == "b"')["baf"].mean()
     if math.isnan(baf_a) and math.isnan(baf_b):
@@ -89,6 +96,7 @@ def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalcu
     cis = {"A": {}, "B": {}}
     cn_frac = {}
     refphase_updated_cns = seg_sample_df.was_cn_updated.unique()[0]
+    refphase_reference_segment = seg_sample_df.is_reference.unique()[0]
     for allele in ["A", "B"]:
         bootstrap_values = []
         for i in range(n_bootstrap):
@@ -103,6 +111,12 @@ def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalcu
         lower_CI = max(lower_bound, 0)
         upper_CI = max(upper_bound, 0.001)
         cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}
+        # We belive that current implementation of Refphase contains a bug and segments marked as 'is_reference' should also be marked as 'was_cn_updated'.
+        # Therefore, we include an option here to fix this and recalculate reference segment copy number without rounding:
+        if refphase_reference_segment:
+            if recalculate_reference_cns:
+                cn_frac[allele] = (lower_CI + upper_CI) / 2
+                continue
         if refphase_updated_cns:
             # if segment was updated by refphase
             if recalculate_updated_cns:
@@ -134,7 +148,7 @@ def calculate_confidence_intervals(seg_sample_df, ci_value, n_bootstrap, recalcu
                 lower_CI = refphase_cns - half_ci_span
                 upper_CI = refphase_cns + half_ci_span
                 cis[allele] = {"lower_CI": lower_CI, "upper_CI": upper_CI}
-                cn_frac[allele] = refphase_cns
+                cn_frac[allele] = refphase_cns 
     return pd.DataFrame(
         {
             "cpnA": cn_frac["A"],
