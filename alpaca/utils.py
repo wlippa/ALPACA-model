@@ -99,6 +99,7 @@ def show_help():
     print("  run                  Run ALPACA")
     print("  input-conversion     Run input conversion")
     print("  ccd                  Calculate clone copy number diversity")
+    print("  wgd                  Calculate parent/child WGD ratios")
     print("  ancestor-delta       Compute copy-number changes to each ancestor")
     print("  plot-tumour          Generate notebooks or PDFs once results exist")
     print("")

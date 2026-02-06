@@ -49,6 +49,11 @@ def main():
 
         scripts.run_calculate_ccd()
         return
+    elif command == "wgd":
+        import alpaca.scripts as scripts
+
+        scripts.run_calculate_wgd()
+        return
     elif command == "plot-tumour":
         import alpaca.scripts as scripts
 

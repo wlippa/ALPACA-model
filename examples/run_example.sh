@@ -43,6 +43,12 @@ alpaca ccd \
     --output_directory "${output_directory}" \
     --alpaca_output_path "${output_directory}/ALPACA_output_${tumour_id}.csv"
 
+# calculate WGD ratios:
+alpaca wgd \
+    --output_directory "${output_directory}" \
+    --alpaca_output_path "${output_directory}/ALPACA_output_${tumour_id}.csv" \
+    --tree_path "${input_tumour_directory}/tree_paths.json"
+
 alpaca plot-tumour \
     --input_directory "${input_tumour_directory}" \
     --output_directory "${output_directory}" \
