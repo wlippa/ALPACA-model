@@ -227,7 +227,7 @@ def calculate_wgd_ratios(results_path: str, tree_path: str) -> pd.DataFrame:
 
     results = (
         df.groupby(["tumour_id", "clone", "parent"], sort=False)
-        .apply(_calc_group, include_groups=True)
+        .apply(_calc_group)
         .reset_index(drop=True)
     )
     logger.info(f"Computed WGD ratios for {results['clone'].nunique()} clones")
