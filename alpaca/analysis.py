@@ -67,9 +67,7 @@ def calculate_ccd(results_path, metric="euclidean"):
     results_df = pd.read_csv(results_path)
     # validate input:
     # check if columns tumour_id, clone and segment are strings, while pred_CN_A and pred_CN_B are integers:
-    if not all(
-        results_df[col].dtype == "object" for col in ["tumour_id", "clone", "segment"]
-    ):
+    if not all(results_df[col].dtype in ["str", "object"] for col in ["tumour_id", "clone", "segment"]):
         raise ValueError("tumour_id, clone and segment should be strings")
     if not all(results_df[col].dtype == "int" for col in ["pred_CN_A", "pred_CN_B"]):
         raise ValueError("pred_CN_A and pred_CN_B should be integers")
