@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from importlib.resources import files
 from alpaca.analysis import get_cn_change_to_ancestor
-from alpaca.analysis import calculate_ccd
+from alpaca.analysis import calculate_ccd, calculate_wgd_ratios
 import argparse
 from datetime import datetime
 import logging
@@ -173,6 +173,58 @@ def run_calculate_ccd():
         exit(1)
 
 
+def run_calculate_wgd():
+    """CLI wrapper for calculate_wgd_ratios"""
+    logger = create_logger(name="wgd_analysis", log_dir="logs")
+    parser = argparse.ArgumentParser(
+        description="Compute per-clone copy-number increase ratios vs parent."
+    )
+    parser.add_argument("command", choices=["wgd"], help="Command to run")
+    parser.add_argument(
+        "--alpaca_output_path",
+        help="Path to the results dataframe file (CSV format), single tumour only",
+        required=True,
+    )
+    parser.add_argument(
+        "--tree_path",
+        help="Path to the tree file (tree_paths.json or tree_paths.nwk)",
+        required=True,
+    )
+    parser.add_argument(
+        "--output_directory", help="Path to save the output CSV file", required=True
+    )
+
+    args = parser.parse_args()
+    if not os.path.isfile(args.alpaca_output_path):
+        logger.error(f"Tumour dataframe file not found: {args.alpaca_output_path}")
+        exit(1)
+    if not os.path.isfile(args.tree_path):
+        logger.error(f"Tree file not found: {args.tree_path}")
+        exit(1)
+    with open(args.alpaca_output_path, "r") as f:
+        header = f.readline().strip().split(",")
+        required_columns = ["tumour_id", "clone", "segment", "pred_CN_A", "pred_CN_B"]
+        missing_columns = [col for col in required_columns if col not in header]
+        if missing_columns:
+            logger.error(
+                f"Tumour dataframe file does not contain required columns: {missing_columns}"
+            )
+            exit(1)
+    try:
+        logger.info("Starting WGD ratio analysis...")
+        ratios_df = calculate_wgd_ratios(
+            results_path=args.alpaca_output_path, tree_path=args.tree_path
+        )
+        output_dir = args.output_directory
+        os.makedirs(output_dir, exist_ok=True)
+        output_name = f"{output_dir}/wgd_ratio_scores.csv"
+        ratios_df.to_csv(output_name, index=False)
+        logger.info(f"Analysis completed successfully. Output saved to: {output_name}")
+    except Exception as e:
+        logger.exception(f"An error occurred during analysis: {e}")
+        exit(1)
+
+
 def run_plot_tumour():
     """CLI wrapper for generating plots/notebooks once ALPACA outputs exist."""
 
@@ -196,7 +248,7 @@ def run_plot_tumour():
         help="Existing ALPACA output directory containing ALPACA_output*.csv files.",
     )
     parser.add_argument(
-        "--alpaca-output-path",
+        "--alpaca_output_path",
         dest="alpaca_output_path",
         default=None,
         help="Optional explicit path to the ALPACA_output CSV (defaults to autodetect in the output directory).",
@@ -214,27 +266,27 @@ def run_plot_tumour():
         help="Optional path to a driver mutation table (CSV/TSV).",
     )
     parser.add_argument(
-        "--plot-output-mode",
+        "--plot_output_mode",
         dest="plot_output_mode",
         choices=["pdf", "notebook", "none"],
         default="notebook",
         help="Choose 'pdf' for static figures, 'notebook' (default), or 'none' to skip generation.",
     )
     parser.add_argument(
-        "--notebook-name",
+        "--notebook_name",
         dest="notebook_name",
         default=None,
         help="Optional filename for the generated notebook (defaults to <tumour_id>_plots.ipynb).",
     )
     parser.add_argument(
-        "--heatmap-palette",
+        "--heatmap_palette",
         dest="heatmap_palette",
         default=_DEFAULT_HEATMAP_PALETTE,
         choices=_SUPPORTED_HEATMAP_CHOICES,
         help="Colour palette for copy-number gains (>=2 states).",
     )
     parser.add_argument(
-        "--genome-build",
+        "--genome_build",
         dest="genome_build",
         default=_DEFAULT_GENOME_BUILD,
         choices=SUPPORTED_GENOME_BUILDS,

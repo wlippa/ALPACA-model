@@ -311,10 +311,10 @@ output_directory="examples/example_cohort/output/${tumour_id}"
 alpaca run \
    --input_tumour_directory "${input_tumour_directory}" \
    --output_directory "${output_directory}" \
-   --genome-build hg19
+   --genome_build hg19
 ```
 
-Note: genome-build is only required for plotting, not for the copy-number inferenece.
+Note: genome_build is only required for plotting, not for the copy-number inferenece.
 
 Your input_tumour_directory should look like this:
 
@@ -411,7 +411,7 @@ ALPACA-model/examples/example_cohort/output/LTX0000-Tumour1
 
 #### Plotting outputs and genome builds
 
-Heatmap visualisations rely on chromosome length tables that match the genome build used to generate your tumour segments. ALPACA now downloads these tables from UCSC automatically and caches them under `~/.cache/alpaca/genomes`. Supply `--genome-build {hg19|hg38}` whenever plotting is enabled (the flag defaults to `hg19` for backwards compatibility, but you should set `--genome-build hg38` for GRCh38 inputs).
+Heatmap visualisations rely on chromosome length tables that match the genome build used to generate your tumour segments. ALPACA now downloads these tables from UCSC automatically and caches them under `~/.cache/alpaca/genomes`. Supply `--genome_build {hg19|hg38}` whenever plotting is enabled (the flag defaults to `hg19` for backwards compatibility, but you should set `--genome_build hg38` for GRCh38 inputs).
 
 If you disabled plotting during `alpaca run` (for example with `--plot_output_mode none`), you can regenerate notebooks or PDFs later via:
 
@@ -419,8 +419,8 @@ If you disabled plotting during `alpaca run` (for example with `--plot_output_mo
 alpaca plot-tumour \
    --input_directory "${input_tumour_directory}" \
    --output_directory "${output_directory}" \
-   --plot-output-mode pdf \
-   --genome-build hg38
+   --plot_output_mode pdf \
+   --genome_build hg38
 ```
 
 The `plot-tumour` helper accepts the same `--chr-table` / `--mutation-table` overrides as the main run, so you can point it at a pre-downloaded chromosome table when working offline.
