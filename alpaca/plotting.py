@@ -1179,6 +1179,194 @@ def plot_cpn_per_clone(
     return fig
 
 
+def plot_sample_level_copy_numbers(
+    sample_table,
+    chr_table,
+    allele="A",
+    max_cpn_cap=8,
+):
+    """Plot sample-level copy numbers across the genome for a single allele."""
+
+    if sample_table is None or sample_table.empty:
+        raise ValueError("Sample-level copy number table is empty.")
+
+    allele = (allele or "").upper()
+    if allele not in {"A", "B"}:
+        raise ValueError("Allele must be 'A' or 'B'.")
+
+    cpn_col = f"cpn{allele}"
+    required_columns = {"segment", "sample", cpn_col}
+    missing = required_columns - set(sample_table.columns)
+    if missing:
+        raise ValueError(
+            "Sample-level table is missing required columns: "
+            + ", ".join(sorted(missing))
+        )
+
+    df = sample_table.copy()
+    segment_parts = df["segment"].astype(str).str.split("_", expand=True)
+    if segment_parts.shape[1] < 3:
+        raise ValueError(
+            "Segment column must be formatted as <chr>_<start>_<end>."
+        )
+
+    df["chr"] = segment_parts[0].apply(
+        lambda value: value if str(value).startswith("chr") else f"chr{value}"
+    )
+    df["Start"] = pd.to_numeric(segment_parts[1], errors="coerce")
+    df["End"] = pd.to_numeric(segment_parts[2], errors="coerce")
+    df = df.dropna(subset=["Start", "End", "chr", cpn_col])
+    if df.empty:
+        raise ValueError("No valid segments found after parsing the sample table.")
+
+    df["Start"] = df["Start"].astype(int)
+    df["End"] = df["End"].astype(int)
+    df[cpn_col] = pd.to_numeric(df[cpn_col], errors="coerce")
+    df = df.dropna(subset=[cpn_col])
+    if df.empty:
+        raise ValueError("No valid copy-number values found in the sample table.")
+
+    for col in ("cpnA", "cpnB"):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").round(2)
+
+    df = df.merge(chr_table, on="chr", how="left")
+    df = df.dropna(subset=["shift"])
+    if df.empty:
+        raise ValueError("Chromosome table did not match any segments in input.")
+
+    df["abs_start"] = df["Start"] + df["shift"]
+    df["abs_end"] = df["End"] + df["shift"]
+    df = df.sort_values(["abs_start", "abs_end"])  # genome order
+
+    if max_cpn_cap is not None:
+        df.loc[df[cpn_col] > max_cpn_cap, cpn_col] = max_cpn_cap
+
+    sample_order = remove_duplicates_preserve_order(df["sample"].astype(str).tolist())
+    if not sample_order:
+        raise ValueError("No samples found in the sample table.")
+
+    tumour_id = df["tumour_id"].iloc[0] if "tumour_id" in df.columns else None
+    sample_labels = sample_order
+    if tumour_id:
+        stripped = []
+        for sample in sample_labels:
+            prefix = f"{tumour_id}_"
+            stripped.append(sample[len(prefix) :] if sample.startswith(prefix) else sample)
+        sample_labels = stripped
+
+    number_of_samples = len(sample_order)
+    total_plot_height = max(600, 120 * number_of_samples)
+    line_color = "rgb(255, 164, 0)" if allele == "A" else "rgb(0, 128, 128)"
+
+    fig = make_subplots(
+        rows=number_of_samples,
+        cols=1,
+        shared_xaxes=True,
+        horizontal_spacing=0.01,
+        vertical_spacing=0.08,
+        subplot_titles=sample_labels,
+    )
+
+    genome_start = float(chr_table["shift"].min())
+    genome_end = float(chr_table["cumsum"].max())
+
+    for idx, sample in enumerate(sample_order, start=1):
+        sample_df = df[df["sample"].astype(str) == sample]
+        sample_df = sample_df[["abs_start", "abs_end", cpn_col]].drop_duplicates()
+        sample_df = sample_df.sort_values("abs_start", ascending=True)
+        sample_df["space"] = None
+        epsilon = 0.03
+        sample_df["plot_cpn"] = sample_df[cpn_col].where(
+            sample_df[cpn_col] != 0, epsilon
+        )
+        sample_y_limit = float(sample_df[cpn_col].max())
+        if math.isnan(sample_y_limit):
+            sample_y_limit = 0.0
+        sample_y_limit *= 1.1
+        sample_y_limit = max(sample_y_limit, 1.0)
+
+        x_vals = flat_list(
+            [
+                [row["abs_start"], row["abs_end"], row["space"]]
+                for _, row in sample_df.iterrows()
+            ]
+        )
+        y_vals = flat_list(
+            [
+                [row["plot_cpn"], row["plot_cpn"], row["space"]]
+                for _, row in sample_df.iterrows()
+            ]
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                showlegend=False,
+                x=x_vals,
+                y=y_vals,
+                mode="lines",
+                line=dict(color=line_color, width=1),
+            ),
+            row=idx,
+            col=1,
+        )
+
+        for chromosome_line in chr_table["cumsum"]:
+            fig.add_trace(
+                go.Scatter(
+                    x=[chromosome_line, chromosome_line],
+                    y=[0, sample_y_limit],
+                    mode="lines",
+                    line=dict(color="black", width=1, dash="dot"),
+                    showlegend=False,
+                ),
+                row=idx,
+                col=1,
+            )
+
+        fig.add_shape(
+            type="rect",
+            x0=genome_start,
+            x1=genome_end,
+            y0=0,
+            y1=sample_y_limit,
+            line=dict(color="black", width=1),
+            fillcolor="rgba(0,0,0,0)",
+            layer="below",
+            row=idx,
+            col=1,
+        )
+
+        fig.update_yaxes(range=[0, sample_y_limit], zeroline=False, row=idx, col=1)
+        fig.update_xaxes(zeroline=False, row=idx, col=1)
+
+        if idx != number_of_samples:
+            fig.update_xaxes(showticklabels=False, row=idx, col=1)
+        else:
+            fig.update_xaxes(
+                tickmode="array",
+                tickvals=chr_table["cumsum"] - (chr_table["len"] / 2),
+                ticktext=chr_table["chr"].str.replace("chr", "", regex=False),
+                title_text="Genome",
+                showticklabels=True,
+                row=idx,
+                col=1,
+            )
+
+    title_prefix = f"{tumour_id} " if tumour_id else ""
+    fig.update_layout(
+        title=f"{title_prefix}Sample-level copy numbers (Allele {allele})",
+        plot_bgcolor="rgba(255,255,255,0)",
+        autosize=False,
+        width=1600,
+        height=total_plot_height,
+        showlegend=False,
+    )
+    fig.update_yaxes(title_text="Copy numbers", row=1, col=1)
+
+    return fig
+
+
 def plot_heat_map(
     patient_output,
     allele,
@@ -1331,6 +1519,15 @@ def _load_plot_inputs(
         raise ValueError("ALPACA output is empty; cannot produce plots.")
     cp_table = pd.read_csv(cp_table_path).set_index("clone")
 
+    input_table_path = input_dir / "ALPACA_input_table.csv"
+    sample_table = None
+    if input_table_path.exists():
+        sample_table = pd.read_csv(input_table_path)
+    else:
+        warnings.warn(
+            f"Sample-level input table not found at {input_table_path}; skipping sample-level plots."
+        )
+
     mutation_table = load_mutation_table(input_dir, mutation_table_override)
     tumour_id = alpaca_output.tumour_id.iloc[0]
     driver_mutations = prepare_driver_mutations(mutation_table, tumour_id, chr_table)
@@ -1340,11 +1537,13 @@ def _load_plot_inputs(
         "output_dir": output_dir,
         "alpaca_output_path": alpaca_path,
         "cp_table_path": cp_table_path,
+        "input_table_path": input_table_path,
         "tree_path_for_config": tree_display_path,
         "tree_json_path": tree_json_path,
         "tree": tree,
         "alpaca_output": alpaca_output,
         "cp_table": cp_table,
+        "sample_table": sample_table,
         "chr_table": chr_table,
         "driver_mutations": driver_mutations,
         "tumour_id": tumour_id,
@@ -1383,6 +1582,25 @@ def _write_pdf_plots(plot_inputs, output_dir, heatmap_palette):
     cn_path = output_dir / f"{tumour_id}_cn_changes_per_clone.pdf"
     cn_changes.write_image(str(cn_path))
     generated.append(cn_path)
+
+    sample_table = plot_inputs.get("sample_table")
+    if sample_table is not None and not sample_table.empty:
+        for allele in ("A", "B"):
+            sample_fig = plot_sample_level_copy_numbers(
+                sample_table=sample_table.copy(),
+                chr_table=plot_inputs["chr_table"],
+                allele=allele,
+                max_cpn_cap=8,
+            )
+            sample_path = (
+                output_dir / f"{tumour_id}_sample_copy_numbers_{allele}.pdf"
+            )
+            sample_fig.write_image(str(sample_path))
+            generated.append(sample_path)
+    else:
+        warnings.warn(
+            "Sample-level input table missing or empty; skipping sample-level plots."
+        )
 
     return generated
 
@@ -1429,6 +1647,7 @@ from alpaca.plotting import (
     prepare_driver_mutations,
     plot_cpn_per_clone,
     plot_heatmap_with_tree,
+    plot_sample_level_copy_numbers,
 )
 from alpaca.utils import read_tree_json
 
@@ -1440,6 +1659,7 @@ OUTPUT_DIR = Path(r"{output_dir_literal}")
 TREE_PATH = Path(r"{tree_path_literal}")
 CP_TABLE_PATH = Path(r"{cp_table_literal}")
 ALPACA_OUTPUT_PATH = Path(r"{alpaca_output_literal}")
+SAMPLE_TABLE_PATH = INPUT_DIR / "ALPACA_input_table.csv"
 
 HEATMAP_PALETTE = {heatmap_palette_literal}
 GENOME_BUILD = {genome_build_literal}
@@ -1448,6 +1668,12 @@ chr_table = load_chr_table(genome_build=GENOME_BUILD)
 tree = read_tree_json(str(TREE_PATH))
 alpaca_output = pd.read_csv(ALPACA_OUTPUT_PATH)
 cp_table = pd.read_csv(CP_TABLE_PATH).set_index("clone")
+
+sample_table = None
+if SAMPLE_TABLE_PATH.exists():
+    sample_table = pd.read_csv(SAMPLE_TABLE_PATH)
+else:
+    print("Sample-level input table not found; sample-level plots will be skipped.")
 
 mutation_table = load_mutation_table(INPUT_DIR)
 tumour_id = alpaca_output.tumour_id.iloc[0]
@@ -1495,12 +1721,33 @@ heatmap_B.show()
 cn_changes.show()
 """
 
+    sample_cpn_code = """if sample_table is None or sample_table.empty:
+    print("Sample-level input table missing; skipping sample-level copy-number plots.")
+else:
+    sample_cpn_A = plot_sample_level_copy_numbers(
+        sample_table=sample_table,
+        chr_table=chr_table,
+        allele="A",
+        max_cpn_cap=8,
+    )
+    sample_cpn_A.show()
+
+    sample_cpn_B = plot_sample_level_copy_numbers(
+        sample_table=sample_table,
+        chr_table=chr_table,
+        allele="B",
+        max_cpn_cap=8,
+    )
+    sample_cpn_B.show()
+"""
+
     cells = [
         _make_code_cell(imports_code),
         _make_code_cell(config_code),
         _make_code_cell(heatmap_a_code),
         _make_code_cell(heatmap_b_code),
         _make_code_cell(cn_changes_code),
+        _make_code_cell(sample_cpn_code),
     ]
 
     return {
