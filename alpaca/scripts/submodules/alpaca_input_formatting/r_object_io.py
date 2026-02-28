@@ -571,8 +571,25 @@ def to_dataframe(obj: Any, *, name: str) -> pd.DataFrame:
 
 
 def normalize_cluster_id(value: Any) -> Any:
-    if pd.isna(value):
-        return value
+    value = _unwrap_singleton(value)
+    # For unexpected multi-valued wrappers, fall back to the first element so
+    # cluster IDs remain scalar/hashable for downstream index lookups.
+    if isinstance(value, np.ndarray):
+        if value.size == 0:
+            return value
+        value = _unwrap_singleton(value.reshape(-1)[0])
+    elif isinstance(value, (list, tuple, pd.Series)):
+        if len(value) == 0:
+            return value
+        value = _unwrap_singleton(value[0])
+
+    try:
+        is_na = pd.isna(value)
+        if isinstance(is_na, (bool, np.bool_)) and is_na:
+            return value
+    except Exception:
+        pass
+
     try:
         return int(float(value))
     except (TypeError, ValueError):

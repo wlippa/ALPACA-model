@@ -308,7 +308,11 @@ def compute_subclone_proportions(
 
     ccf = ccf.clip(upper=100.0)
     trunk = normalize_cluster_id(trunk)
-    if trunk in ccf.index:
+    try:
+        trunk_in_index = trunk in ccf.index
+    except TypeError:
+        trunk_in_index = False
+    if trunk_in_index:
         ccf.loc[trunk, :] = 100.0
 
     ccf_cluster_df = ccf.copy()
