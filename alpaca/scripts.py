@@ -3,18 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 from importlib.resources import files
-from alpaca.analysis import get_cn_change_to_ancestor
-from alpaca.analysis import calculate_ccd, calculate_wgd_ratios
 import argparse
-from datetime import datetime
-import logging
 from alpaca.utils import create_logger, save_dataframe_to_csv, SUPPORTED_GENOME_BUILDS
-from alpaca.plotting import (
-    export_plot_outputs,
-    _DEFAULT_HEATMAP_PALETTE,
-    _SUPPORTED_HEATMAP_CHOICES,
-    _DEFAULT_GENOME_BUILD,
-)
 
 
 def input_conversion():
@@ -80,6 +70,8 @@ def input_conversion():
 
 def run_get_cn_change_to_ancestor():
     """CLI wrapper for get_cn_change_to_ancestor"""
+    from alpaca.analysis import get_cn_change_to_ancestor
+
     logger = create_logger(name="ancestor-delta", log_dir="logs")
     parser = argparse.ArgumentParser(
         description="Compute copy number changes to ancestor and save to CSV."
@@ -128,6 +120,8 @@ def run_get_cn_change_to_ancestor():
 
 def run_calculate_ccd():
     """CLI wrapper for calculate_ccd"""
+    from alpaca.analysis import calculate_ccd
+
     logger = create_logger(name="ccd_analysis", log_dir="logs")
     parser = argparse.ArgumentParser(
         description="Compute clone copy number diversity and save results."
@@ -175,6 +169,8 @@ def run_calculate_ccd():
 
 def run_calculate_wgd():
     """CLI wrapper for calculate_wgd_ratios"""
+    from alpaca.analysis import calculate_wgd_ratios
+
     logger = create_logger(name="wgd_analysis", log_dir="logs")
     parser = argparse.ArgumentParser(
         description="Compute per-clone copy-number increase ratios vs parent."
@@ -227,6 +223,12 @@ def run_calculate_wgd():
 
 def run_plot_tumour():
     """CLI wrapper for generating plots/notebooks once ALPACA outputs exist."""
+    from alpaca.plotting import (
+        export_plot_outputs,
+        _DEFAULT_HEATMAP_PALETTE,
+        _SUPPORTED_HEATMAP_CHOICES,
+        _DEFAULT_GENOME_BUILD,
+    )
 
     logger = create_logger(name="plotting", log_dir="logs")
     parser = argparse.ArgumentParser(

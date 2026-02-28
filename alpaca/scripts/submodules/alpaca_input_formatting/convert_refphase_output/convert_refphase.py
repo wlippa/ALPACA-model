@@ -148,7 +148,6 @@ def _sanitize_chr_names(df):
 
 _sanitize_chr_names(refphase_segments)
 _sanitize_chr_names(refphase_snps)
-
 # create segment column by combining chromosome, start and end:
 refphase_segments["segment"] = (
     refphase_segments["chr"].astype(str)
@@ -180,6 +179,7 @@ snps_with_segments = refphase_snps.merge(
     right_on=["sample", "chr"],
     how="inner",
 )
+
 snps_with_segments = snps_with_segments[
     (snps_with_segments["pos"] >= snps_with_segments["start"])
     & (snps_with_segments["pos"] <= snps_with_segments["end"])

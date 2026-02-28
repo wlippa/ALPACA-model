@@ -4,6 +4,6 @@ output_dir="tests/test_output"
 refphase_rData="examples/example_cohort/input/${tumour_id}/${tumour_id}-refphase-results.RData"
 SCRIPT_DIR="alpaca/scripts/submodules/alpaca_input_formatting"
 
-Rscript "${SCRIPT_DIR}/convert_refphase_output/extract_rephase_data.R" \
+python3 "${SCRIPT_DIR}/convert_refphase_output/extract_rephase_data.py" \
     --refphase_rData $refphase_rData \
     --output_dir $output_dir

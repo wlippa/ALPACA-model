@@ -15,10 +15,7 @@ dependencies:
   - python=3.13.2
   - scipy
   - tqdm
-  - r-base
-  - bioconductor-genomicranges
-  - r-jsonlite
-  - r-optparse
+  - rdata
   - seaborn
   - plotly
   - networkx

@@ -9,13 +9,19 @@ description = "Package for ALPACA model - Allele-specific Phylogenetic Analysis 
 authors = [{ name = "Piotr Pawlik"}]
 license = { file = "LICENSE" }
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
-    "numpy",  
-    "pandas",
     "gurobipy",
     "kneed",
+    "kaleido",
+    "matplotlib",
+    "networkx",
+    "numpy",
+    "pandas",
+    "plotly",
     "scipy",
+    "seaborn",
+    "rdata",
     "tqdm",
     "pyomo",
 ]
@@ -25,19 +31,18 @@ include = [
     "/alpaca",
     "/alpaca/submodules"
 ]
+exclude = [
+    ".*",
+    "dev/",
+    "tests/",
+    "__pycache__/"
+]
 
 [tool.hatch.version]
 source = "vcs"
 
 [tool.hatch.envs.dev.scripts]
 debug-input = "python -m pdb -c continue -m alpaca.scripts input_conversion {args}"
-
-exclude = [
-    ".*",           
-    "dev/",
-    "tests/",
-    "__pycache__/"
-]
 
 
 [tool.hatch.metadata]

@@ -80,19 +80,17 @@ if [ ! -f $refphase_rData ]; then
     exit 1
 fi
 
-# Check if Rscript is available
-if ! command -v Rscript &> /dev/null; then
-    echo "Error: Rscript is not available in the environment." >&2
-    echo "Please install R and ensure Rscript is in your PATH." >&2
+if ! command -v python3 &> /dev/null; then
+    echo "Error: python3 is not available in the environment." >&2
     exit 1
 fi
 echo "===================================="
 echo "Extracting data from REFPHASE output"
-Rscript "${SCRIPT_DIR}/convert_refphase_output/extract_rephase_data.R" \
+python3 "${SCRIPT_DIR}/convert_refphase_output/extract_rephase_data.py" \
     --refphase_rData $refphase_rData \
     --output_dir $output_dir
 if [ $? -ne 0 ]; then
-    echo "Rscript extract_rephase_data.R failed" >&2
+    echo "Python extract_rephase_data.py failed" >&2
     exit 1
 fi
 
@@ -101,12 +99,12 @@ refphase_snps_path="${output_dir}/phased_snps.tsv"
 refphase_purity_ploidy_path="${output_dir}/purity_ploidy.tsv"
 echo "===================================="
 echo "Extracting data from CONIPHER output"
-Rscript "${SCRIPT_DIR}/convert_conipher_output/convert_conipher_output.R" \
+python3 "${SCRIPT_DIR}/convert_conipher_output/convert_conipher_output.py" \
     --CONIPHER_tree_object $CONIPHER_tree_object \
     --CONIPHER_tree_index $CONIPHER_tree_index \
     --output_dir $output_dir
 if [ $? -ne 0 ]; then
-    echo "Rscript convert_conipher_output.R failed" >&2
+    echo "Python convert_conipher_output.py failed" >&2
     exit 1
 fi
 echo "===================================="

@@ -86,7 +86,6 @@ def run_alpaca():
     )
     from alpaca.make_configuration import make_config
     from alpaca.analysis import get_cn_change_to_ancestor
-    from alpaca.plotting import export_plot_outputs
 
     # Configure logging
     logger = create_logger(name="ALPACA", log_dir="logs")
@@ -189,6 +188,8 @@ def run_alpaca():
             heatmap_palette = config["preprocessing_config"].get("heatmap_palette")
             genome_build = config["preprocessing_config"].get("genome_build", "hg19")
             if plot_mode != "none":
+                from alpaca.plotting import export_plot_outputs
+
                 tumour_input_dir = config["preprocessing_config"].get("input_tumour_directory") or SS.tumour_dir
                 try:
                     export_plot_outputs(
