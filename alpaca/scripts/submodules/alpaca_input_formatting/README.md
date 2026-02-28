@@ -2,15 +2,11 @@
 
 # Requirements
 
-Required R libraries:
+Required Python libraries:
 
-rjson
+pandas
 
-argparse
-
-CONIPHER
-
-fst
+rdata
 
 # Running test
 

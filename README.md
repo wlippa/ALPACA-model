@@ -58,7 +58,9 @@ git clone https://github.com/McGranahanLab/ALPACA-model.git
 cd ALPACA-model
 ```
 
-ALPACA is implemented in python - the easiest way to install all the required dependencies is to use 'alpaca_conda.yml':
+ALPACA is implemented in python and requires Linux or macOS. 
+
+To install all the required dependencies use 'alpaca_conda.yml':
 
 ```bash
 conda env create --name alpaca --file environment.yml
