@@ -31,7 +31,7 @@ parser.add_argument(
 parser.add_argument(
     "--conipher_cp_table",
     type=str,
-    help="Path to CONIPHER cp_table TSV (required)",
+    help="Path to CONIPHER cp_table CSV (required)",
     required=True,
 )
 
