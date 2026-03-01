@@ -128,8 +128,16 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Ensure that the final output (cp_table.csv and ALPACA_input_table.csv) contain
+# the same set of samples.
+
+python3 "${SCRIPT_DIR}/check_final_outputs.py" \
+    --output_dir "${output_dir}"
+
+
 # Write a small conversion report summarising the arguments used and the run time
 report_path="${output_dir%/}/conversion_report.txt"
+sample_filter_report_path="${output_dir%/}/sample_filter_report.txt"
 cat > "$report_path" <<-REPORT
 Conversion report
 =================
@@ -150,4 +158,13 @@ Arguments and values:
     output_dir: ${output_dir}
 
 REPORT
+
+if [ -f "$sample_filter_report_path" ]; then
+    {
+        echo
+        echo "Sample filtering report:"
+        sed 's/^/    /' "$sample_filter_report_path"
+    } >> "$report_path"
+fi
+
 echo "Wrote conversion report to $report_path"
