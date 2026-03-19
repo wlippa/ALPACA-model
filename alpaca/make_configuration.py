@@ -182,7 +182,7 @@ def get_parser():
     parser.add_argument(
         "--min_ci",
         type=float,
-        default=0.0,
+        default=0.1,
         help="Minimum allowed confidence interval span for each allele (float). CI spans tighter than this will be expanded.",
     )
     parser.add_argument("--debug", default=False, action="store_true")
