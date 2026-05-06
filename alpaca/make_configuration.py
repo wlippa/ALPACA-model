@@ -221,6 +221,13 @@ def get_parser():
         help="If set to 1 (default), enforce zero gap tolerance for Gurobi optimization to improve reproducibility. "
         "When enabled, the solver will only stop when it proves optimality (gap=0) or hits the time limit.",
     )
+    parser.add_argument(
+        "--simulate_infeasibility",
+        type=str,
+        default="",
+        help="If set to a segment name, add an impossible constraint to that segment's model to force infeasibility. "
+        "Used to debug infeasible-solution handling.",
+    )
 
     return parser
 
@@ -334,6 +341,7 @@ def make_config(args_in):
             "complexity": args.complexity,
             "strict_gap": bool(args.strict_gap),
             "pyomo_solver_options": pyomo_solver_options,
+            "simulate_infeasibility": args.simulate_infeasibility,
         }
     )
     preprocessing_config = {

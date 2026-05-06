@@ -503,6 +503,9 @@ class SegmentSolution:
 
     def run_model(self, allowed_complexity):
         backend_config = {**self.config["model_config"], "allowed_tree_complexity": allowed_complexity}
+        # Forward output_directory so infeasibility reports are written to the correct location.
+        if "output_directory" not in backend_config:
+            backend_config["output_directory"] = self.config["preprocessing_config"].get("output_directory", ".")
         solver_name = backend_config.get("solver", "gurobi")
         solver_logs = backend_config.get("solver_logs")
         if solver_name == "gurobi" and solver_logs and not backend_config.get("gurobi_logs"):

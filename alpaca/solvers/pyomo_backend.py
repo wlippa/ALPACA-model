@@ -12,6 +12,7 @@ from alpaca.utils import (
     flat_list,
     get_length_from_name,
     get_tree_edges,
+    SegmentInfeasibleError,
 )
 
 from .base import ModelInputs, SolverBackend, SolverResult
@@ -79,6 +80,8 @@ class PyomoBackend(SolverBackend):
                 "Pyomo backend currently requires variability_penalty == 0 to remain linear."
             )
         self.solver_log_path = config.get("solver_logs", "")
+        self.output_directory = str(config.get("output_directory", ""))
+        self.simulate_infeasibility = str(config.get("simulate_infeasibility", ""))
         self.big_m = 1000
         self.model: pyo.ConcreteModel | None = None
         self.allowed_tree_complexity = self.allowed_tree_complexity_default
@@ -132,6 +135,7 @@ class PyomoBackend(SolverBackend):
         if self.add_CI_objective and self.add_D_objective:
             self._activate_objective("CI")
             primary = self._run_solver(stage="CI")
+            self._check_feasibility(primary)
             self._fix_ci_objective()
             secondary = self._run_solver(stage="D")
             results = secondary
@@ -139,6 +143,7 @@ class PyomoBackend(SolverBackend):
             target = "CI" if self.add_CI_objective else "D"
             self._activate_objective(target)
             results = self._run_solver(stage=target)
+            self._check_feasibility(results)
         solution_df = self._build_solution_frame()
         runtime = self._extract_runtime(results)
         if runtime is None:
@@ -185,6 +190,9 @@ class PyomoBackend(SolverBackend):
             self._restrict_to_clonal_only()
         self._set_complexity_constraints()
         self._build_objectives()
+        if self.simulate_infeasibility and self.simulate_infeasibility == self.segment:
+            m.simulate_infeasibility_constr = pyo.Constraint(expr=0 >= 1)
+            print(f"simulate_infeasibility: injected infeasible constraint for segment '{self.segment}'")
 
     def _declare_variables(self) -> None:
         assert self.model is not None
@@ -661,6 +669,41 @@ class PyomoBackend(SolverBackend):
         if self.custom_solver_options:
             options.update(self.custom_solver_options)
         return options
+
+    def _check_feasibility(self, results) -> None:
+        """Raise SegmentInfeasibleError if the solver returned an infeasible status."""
+        termination = str(getattr(results.solver, "termination_condition", "")).lower()
+        solver_status = str(getattr(results.solver, "status", "unknown"))
+        if "infeasible" in termination:
+            # Write a JSON summary report so it can be combined with other segments later.
+            import json as _json
+            import os as _os
+            from datetime import datetime as _dt
+            report_dir = getattr(self, "output_directory", "") or getattr(self, "solver_log_path", "") or _os.getcwd()
+            _os.makedirs(report_dir, exist_ok=True)
+            json_path = _os.path.join(
+                report_dir,
+                f"{self.tumour_id}_{self.segment}_infeasibility_report.json",
+            )
+            report_data = {
+                "tumour_id": self.tumour_id,
+                "segment": self.segment,
+                "solver_status": solver_status,
+                "termination_condition": termination,
+                "timestamp": _dt.now().isoformat(),
+                "solver": self.solver_name,
+            }
+            try:
+                with open(json_path, "w") as fh:
+                    _json.dump(report_data, fh, indent=4)
+                print(f"Wrote infeasibility JSON report: {json_path}")
+            except Exception as e:
+                print(f"Failed to write infeasibility JSON report: {e}")
+            print(
+                f"Solver returned infeasible (termination={termination}). "
+                f"Skipping segment '{self.segment}'."
+            )
+            raise SegmentInfeasibleError(self.tumour_id, self.segment, solver_status)
 
     def _update_gap_status(self, results, stage: str) -> None:
         gap = getattr(results.solver, "relative_gap", None)

@@ -82,7 +82,9 @@ def run_alpaca():
         save_dataframe_to_csv,
         process_ci_reports,
         process_monoclonal_reports,
-        process_run_summary_reports
+        process_run_summary_reports,
+        process_infeasibility_reports,
+        SegmentInfeasibleError,
     )
     from alpaca.make_configuration import make_config
     from alpaca.analysis import get_cn_change_to_ancestor
@@ -157,10 +159,22 @@ def run_alpaca():
                 )
                 continue
             logger.debug(f"Output path: {SS.create_output_path()}")
-            SS.run_iterations()
-            SS.find_optimal_solution()
-            SS.get_solution()
-            SS.save_output()
+            try:
+                SS.run_iterations()
+                SS.find_optimal_solution()
+                SS.get_solution()
+                SS.save_output()
+            except SegmentInfeasibleError as e:
+                output_dir = config["preprocessing_config"].get("output_directory", ".")
+                logger.warning(
+                    f"Segment infeasible — skipping. tumour={e.tumour_id}, "
+                    f"segment={e.segment}, solver_status={e.solver_status}. "
+                    "An infeasibility report has been written to the output directory."
+                )
+                if not debug:
+                    progress_bar.update(1)
+                    progress_bar.set_description(f"INFEASIBLE {input_file_name}")
+                continue
             if not debug:
                 progress_bar.update(1)
                 progress_bar.set_description(f"Processing {input_file_name}")
@@ -184,6 +198,21 @@ def run_alpaca():
             process_ci_reports(output_dir, delete=True, outpath=output_dir + "/ci_modified_report.csv")
             process_monoclonal_reports(output_dir, delete=True, outpath=output_dir + "/monoclonal_samples_report.csv")
             process_run_summary_reports(output_dir, delete=True, outpath=output_dir + "/run_gap_summary.csv")
+            process_infeasibility_reports(output_dir, delete=True, outpath=output_dir + "/infeasibility_report.csv")
+            # cleanup: move all the logs, reports and summaries to a separate folder:
+            logs_and_reports_dir = os.path.join(output_dir, "logs_and_reports")
+            try:
+                import shutil
+                os.makedirs(logs_and_reports_dir, exist_ok=True)
+                for item in os.listdir(output_dir):
+                    if item == "logs_and_reports":
+                        continue
+                    if "_log_" in item or "report" in item or item.endswith("_summary.csv"):
+                        shutil.move(os.path.join(output_dir, item), os.path.join(logs_and_reports_dir, item))
+                logger.info(f"Moved logs and reports to {logs_and_reports_dir}")
+            except Exception as e:
+                logger.error(f"Failed to move logs and reports to {logs_and_reports_dir}: {e}")
+                raise
             plot_mode = config["preprocessing_config"].get("plot_output_mode", "notebook")
             heatmap_palette = config["preprocessing_config"].get("heatmap_palette")
             genome_build = config["preprocessing_config"].get("genome_build", "hg19")
