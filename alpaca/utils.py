@@ -579,3 +579,76 @@ def process_run_summary_reports(dirpath: str, delete: bool = False, outpath: Opt
                 os.remove(fp)
             except Exception as e:
                 print(f"Warning: failed to remove {fp}: {e}", file=sys.stderr)
+
+
+class SegmentInfeasibleError(RuntimeError):
+    """Raised when a segment's ILP model has no feasible solution.
+
+    Callers should catch this, skip the offending segment, and continue
+    processing the remaining segments.
+    """
+
+    def __init__(self, tumour_id: str, segment: str, solver_status=None):
+        self.tumour_id = tumour_id
+        self.segment = segment
+        self.solver_status = solver_status
+        super().__init__(
+            f"Segment infeasible: tumour={tumour_id}, segment={segment}, "
+            f"solver_status={solver_status}"
+        )
+
+
+def process_infeasibility_reports(
+    dirpath: str, delete: bool = False, outpath: Optional[str] = None
+) -> pd.DataFrame:
+    """Combine per-segment infeasibility JSON reports into a single CSV.
+
+    Each report is written by the model backend when a segment yields an
+    infeasible ILP and is named ``<tumour_id>_<segment>_infeasibility_report.json``.
+    The combined CSV has one row per infeasible segment.
+    """
+    pattern = os.path.join(dirpath, "*_infeasibility_report.json")
+    files = sorted(glob.glob(pattern))
+    if outpath is None:
+        outpath = os.path.join(dirpath, "infeasibility_report.csv")
+
+    header = [
+        "tumour_id",
+        "segment",
+        "solver_status",
+        "timestamp",
+        "source_file",
+    ]
+
+    with open(outpath, "w", newline="") as csvf:
+        writer = csv.writer(csvf)
+        writer.writerow(header)
+        for fp in files:
+            try:
+                with open(fp) as fh:
+                    data = json.load(fh)
+            except Exception as e:
+                print(f"Warning: failed to read {fp}: {e}", file=sys.stderr)
+                continue
+            writer.writerow(
+                [
+                    data.get("tumour_id", ""),
+                    data.get("segment", ""),
+                    data.get("solver_status", ""),
+                    data.get("timestamp", ""),
+                    os.path.basename(fp),
+                ]
+            )
+
+    if delete and files:
+        for fp in files:
+            try:
+                os.remove(fp)
+            except Exception as e:
+                print(f"Warning: failed to remove {fp}: {e}", file=sys.stderr)
+
+    # return a DataFrame for callers that want programmatic access
+    try:
+        return pd.read_csv(outpath)
+    except Exception:
+        return pd.DataFrame(columns=header)
