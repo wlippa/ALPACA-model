@@ -164,7 +164,21 @@ def remove_small_clones(cp_table, tree):
 
 def split_input_file_name(input_file_name: str):
     stripped_name = input_file_name.split("ALPACA_input_table_")[1]
-    assert stripped_name.count("_") == 3, "Input name has to many underscores"
+    if stripped_name.count("_") != 3:
+        # the segment file name is probably malformed. Try to read the values from the file:
+        try:
+            df = pd.read_csv(input_file_name)
+            tumour_id_all = df.tumour_id.unique()
+            segment_all = df.segment.unique()
+            assert len(tumour_id_all) == 1, "Multiple tumour ids found in the input file, cannot determine tumour id for this segment"
+            assert len(segment_all) == 1, "Multiple segments found in the input file, cannot determine segment name for this segment"
+            tumour_id = tumour_id_all[0]
+            segment = segment_all[0]
+            return tumour_id, segment
+        except Exception:
+            raise ValueError(
+                f"Input file name {input_file_name} is not in the expected format and values could not be read from the file. Expected format: ALPACA_input_table_<tumour_id>_<segment>.csv"
+            )
     stripped_name = stripped_name.replace(".csv", "")
     t_id = stripped_name.split("_")[0]
     s_name = "_".join(stripped_name.split("_")[1:])
